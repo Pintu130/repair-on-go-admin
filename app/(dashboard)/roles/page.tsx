@@ -24,6 +24,7 @@ interface Role {
   permissions: RolePermissions
   userCount: number
 }
+console.log('11111');
 
 const defaultPermission: Permission = { view: false, edit: false, delete: false }
 
