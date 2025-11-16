@@ -20,8 +20,9 @@ import { mockOrders } from "@/data/orders"
 import { useState } from "react"
 import { Clock, TrendingUp, Users, Zap } from "lucide-react"
 import { calculateStats } from "@/utils/stats" // Assuming this function is defined elsewhere
+import { StatCard } from "@/components/stat-card"
 
-// Generate data based on time period
+// Generate Revenue Trend data based on time period
 const generateChartData = (period: "week" | "month" | "year") => {
   const baseData = {
     week: [
@@ -46,30 +47,90 @@ const generateChartData = (period: "week" | "month" | "year") => {
       { label: "Apr", revenue: 2780 },
       { label: "May", revenue: 1890 },
       { label: "Jun", revenue: 2390 },
+      { label: "Jul", revenue: 3490 },
+      { label: "Aug", revenue: 4200 },
+      { label: "Sep", revenue: 3100 },
+      { label: "Oct", revenue: 2800 },
+      { label: "Nov", revenue: 3900 },
+      { label: "Dec", revenue: 4500 },
     ],
   }
   return baseData[period]
 }
 
-const categoryData = [
-  { name: "Plumbing", value: 35 },
-  { name: "Electrical", value: 25 },
-  { name: "Carpentry", value: 20 },
-  { name: "Painting", value: 20 },
-]
+// Generate Category data based on time period
+const generateCategoryData = (period: "week" | "month" | "year") => {
+  const baseData = {
+    week: [
+      { name: "Plumbing", value: 42 },
+      { name: "Electrical", value: 28 },
+      { name: "Carpentry", value: 18 },
+      { name: "Painting", value: 12 },
+    ],
+    month: [
+      { name: "Plumbing", value: 35 },
+      { name: "Electrical", value: 25 },
+      { name: "Carpentry", value: 20 },
+      { name: "Painting", value: 20 },
+    ],
+    year: [
+      { name: "Plumbing", value: 38 },
+      { name: "Electrical", value: 22 },
+      { name: "Carpentry", value: 24 },
+      { name: "Painting", value: 16 },
+    ],
+  }
+  return baseData[period]
+}
 
-const statusData = [
-  { name: "Completed", value: 60 },
-  { name: "In Progress", value: 25 },
-  { name: "Pending", value: 15 },
-]
+// Generate Status data based on time period
+const generateStatusData = (period: "week" | "month" | "year") => {
+  const baseData = {
+    week: [
+      { name: "Completed", value: 65 },
+      { name: "In Progress", value: 25 },
+      { name: "Pending", value: 10 },
+    ],
+    month: [
+      { name: "Completed", value: 60 },
+      { name: "In Progress", value: 25 },
+      { name: "Pending", value: 15 },
+    ],
+    year: [
+      { name: "Completed", value: 70 },
+      { name: "In Progress", value: 20 },
+      { name: "Pending", value: 10 },
+    ],
+  }
+  return baseData[period]
+}
 
-const employeeData = [
-  { name: "John", performance: 85 },
-  { name: "Sarah", performance: 90 },
-  { name: "Mike", performance: 75 },
-  { name: "Emma", performance: 88 },
-]
+// Generate Employee Performance data based on time period
+const generateEmployeeData = (period: "week" | "month" | "year") => {
+  const baseData = {
+    week: [
+      { name: "John", performance: 88 },
+      { name: "Sarah", performance: 92 },
+      { name: "Mike", performance: 78 },
+      { name: "Emma", performance: 85 },
+    ],
+    month: [
+      { name: "John", performance: 85 },
+      { name: "Sarah", performance: 90 },
+      { name: "Mike", performance: 75 },
+      { name: "Emma", performance: 88 },
+    ],
+    year: [
+      { name: "John", performance: 82 },
+      { name: "Sarah", performance: 88 },
+      { name: "Mike", performance: 80 },
+      { name: "Emma", performance: 85 },
+      { name: "David", performance: 78 },
+      { name: "Lisa", performance: 90 },
+    ],
+  }
+  return baseData[period]
+}
 
 const COLORS = ["#ED2C2C", "#3B82F6", "#10B981", "#F59E0B"]
 
@@ -91,6 +152,9 @@ const getStatusColor = (status: string) => {
 export default function DashboardPage() {
   const [timePeriod, setTimePeriod] = useState<"week" | "month" | "year">("month")
   const chartData = generateChartData(timePeriod)
+  const categoryData = generateCategoryData(timePeriod)
+  const statusData = generateStatusData(timePeriod)
+  const employeeData = generateEmployeeData(timePeriod)
   const stats = calculateStats(mockOrders) // Assuming this function calculates totalRevenue and pendingAmount
 
   return (
@@ -103,69 +167,40 @@ export default function DashboardPage() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <TrendingUp className="text-primary" size={18} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{stats.totalRevenue}</div>
-            <p className="text-xs text-green-600">+20.1% from last month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
-            <Users className="text-primary" size={18} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1,234</div>
-            <p className="text-xs text-green-600">+15% from last month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-            <Zap className="text-primary" size={18} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">42</div>
-            <p className="text-xs text-muted-foreground">Active staff members</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <Clock className="text-primary" size={18} />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">3,456</div>
-            <p className="text-xs text-green-600">+8% from last month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Canceled Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">89</div>
-            <p className="text-xs text-muted-foreground">2.6% of total orders</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Amount</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">₹{stats.pendingAmount}</div>
-            <p className="text-xs text-muted-foreground">Amount pending for delivery</p>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Total Revenue"
+          value={`₹${stats.totalRevenue}`}
+          subtitle="+20.1% from last month"
+          subtitleClassName="text-xs text-green-600"
+          icon={<TrendingUp className="text-primary" size={18} />}
+        />
+        <StatCard
+          title="Total Customers"
+          value="1,234"
+          subtitle="+15% from last month"
+          subtitleClassName="text-xs text-green-600"
+          icon={<Users className="text-primary" size={18} />}
+        />
+        <StatCard
+          title="Total Employees"
+          value="42"
+          subtitle="Active staff members"
+          subtitleClassName="text-xs text-muted-foreground"
+          icon={<Zap className="text-primary" size={18} />}
+        />
+        <StatCard
+          title="Total Orders"
+          value="3,456"
+          subtitle="+8% from last month"
+          subtitleClassName="text-xs text-green-600"
+          icon={<Clock className="text-primary" size={18} />}
+        />
+        <StatCard
+          title="Canceled Orders"
+          value="89"
+          subtitle="2.6% of total orders"
+          subtitleClassName="text-xs text-muted-foreground"
+        />
       </div>
 
       <div className="flex gap-2">
@@ -173,7 +208,7 @@ export default function DashboardPage() {
           <button
             key={period}
             onClick={() => setTimePeriod(period)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
               timePeriod === period
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-foreground hover:bg-muted/80"
@@ -205,7 +240,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Bookings by Category</CardTitle>
+            <CardTitle>Bookings by Category ({timePeriod})</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -222,7 +257,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Booking Status</CardTitle>
+            <CardTitle>Booking Status ({timePeriod})</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -240,7 +275,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Employee Performance</CardTitle>
+            <CardTitle>Employee Performance ({timePeriod})</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>

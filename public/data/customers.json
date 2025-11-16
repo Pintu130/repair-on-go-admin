@@ -1,0 +1,35 @@
+[
+  {
+    "id": "customer_1",
+    "email": "customer1@test.com",
+    "password": "customer123",
+    "firstName": "Raj",
+    "lastName": "Kumar",
+    "role": "customer"
+  },
+  {
+    "id": "customer_2",
+    "email": "customer2@test.com",
+    "password": "customer123",
+    "firstName": "Priya",
+    "lastName": "Sharma",
+    "role": "customer"
+  },
+  {
+    "id": "customer_3",
+    "email": "customer3@test.com",
+    "password": "customer123",
+    "firstName": "Amit",
+    "lastName": "Singh",
+    "role": "customer"
+  },
+  {
+    "id": "customer_4",
+    "email": "customer4@test.com",
+    "password": "customer123",
+    "firstName": "Sneha",
+    "lastName": "Patel",
+    "role": "customer"
+  }
+]
+
