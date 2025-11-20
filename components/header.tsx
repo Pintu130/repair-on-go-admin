@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { Eye, EyeOff, LogOut, Menu, Shield, User2 } from "lucide-react"
+import { Eye, EyeOff, LogOut, Menu, Shield, User2, X } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 import {
@@ -12,14 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -61,103 +53,138 @@ export function Header() {
               </span>
             </div>
 
-            {/* Avatar + Dropdown + Change Password Dialog */}
-            <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <div className="relative h-9 w-9 rounded-full overflow-hidden border border-primary-foreground/30 bg-primary-foreground/20 flex items-center justify-center cursor-pointer">
-                      <Image
-                        src="/placeholder-user.jpg"
-                        alt={user.name}
-                        fill
-                        sizes="36px"
-                        className="object-cover"
-                      />
-                    </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                      <User2 className="h-4 w-4" />
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setIsChangePasswordOpen(true)}
-                    className="cursor-pointer"
-                  >
-                    Change Password
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => {
-                      logout()
-                    }}
-                    variant="destructive"
-                    className="cursor-pointer"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            {/* Avatar + Dropdown + Change Password Modal */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                  <div className="relative h-9 w-9 rounded-full overflow-hidden border border-primary-foreground/30 bg-primary-foreground/20 flex items-center justify-center cursor-pointer">
+                    <Image
+                      src="/placeholder-user.jpg"
+                      alt={user.name}
+                      fill
+                      sizes="36px"
+                      className="object-cover"
+                    />
+                  </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                    <User2 className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium leading-none">{user.name}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setIsChangePasswordOpen(true)}
+                  className="cursor-pointer"
+                >
+                  Change Password
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    logout()
+                  }}
+                  variant="destructive"
+                  className="cursor-pointer"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-              {/* Change Password Modal */}
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Change Password</DialogTitle>
-                  <DialogDescription>
-                    Update your account password. Make sure it&apos;s strong and unique.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">New Password</label>
-                    <div className="relative">
-                      <Input
-                        type={showNewPassword ? "text" : "password"}
-                        placeholder="Enter new password"
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword((prev) => !prev)}
-                        className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
-                      >
-                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
+            {/* Custom Change Password Modal */}
+            {isChangePasswordOpen && (
+              <>
+                {/* Overlay */}
+                <div
+                  className="fixed inset-0 bg-black/80 z-50 animate-in fade-in-0"
+                  onClick={() => setIsChangePasswordOpen(false)}
+                />
+                {/* Modal Content */}
+                <div className="fixed left-[50%] top-[50%] z-50 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] border border-border bg-background p-6 shadow-lg rounded-lg animate-in fade-in-0 zoom-in-95">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-lg font-semibold leading-none tracking-tight">Change Password</h2>
+                      <p className="text-sm text-muted-foreground mt-1.5">
+                        Update your account password. Make sure it&apos;s strong and unique.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsChangePasswordOpen(false)}
+                      className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Close</span>
+                    </button>
+                  </div>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">New Password</label>
+                      <div className="relative">
+                        <Input
+                          type={showNewPassword ? "text" : "password"}
+                          placeholder="Enter new password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword((prev) => !prev)}
+                          className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                        >
+                          {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Confirm Password</label>
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Re-enter new password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword((prev) => !prev)}
+                          className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Confirm Password</label>
-                    <div className="relative">
-                      <Input
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Re-enter new password"
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword((prev) => !prev)}
-                        className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
-                      >
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsChangePasswordOpen(false)
+                        setShowNewPassword(false)
+                        setShowConfirmPassword(false)
+                      }}
+                      className="cursor-pointer text-black"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      className="cursor-pointer"
+                      onClick={() => {
+                        // TODO: Add password change logic here
+                        setIsChangePasswordOpen(false)
+                        setShowNewPassword(false)
+                        setShowConfirmPassword(false)
+                      }}
+                    >
+                      Save Password
+                    </Button>
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsChangePasswordOpen(false)} className="cursor-pointer">
-                    Cancel
-                  </Button>
-                  <Button className="cursor-pointer">Save Password</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+              </>
+            )}
           </div>
         </div>
       </div>

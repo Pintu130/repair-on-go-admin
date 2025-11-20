@@ -6,59 +6,67 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Search, ChevronLeft, ChevronRight, Edit2, Trash2, Plus } from "lucide-react"
-import { mockCustomers } from "@/data/customers"
-
-const ITEMS_PER_PAGE = 8
-
-interface Customer {
-  id: string
-  name: string
-  email: string
-  city: string
-  address: string
-  totalOrders: number
-  status: "active" | "inactive"
-}
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ChevronLeft, ChevronRight, Edit2, Trash2, Plus, Search, X } from "lucide-react"
+import { mockCustomers, Customer } from "@/data/customers"
 
 export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [statusFilter, setStatusFilter] = useState("all")
   const [customers, setCustomers] = useState<Customer[]>(mockCustomers)
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<Customer, "id" | "joinDate">>({
     name: "",
     email: "",
+    phone: "",
     city: "",
-    address: "",
     totalOrders: 0,
-    status: "active" as const,
+    status: "active",
   })
+
+  // Check if any filters are active
+  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all"
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+    setCurrentPage(1)
+  }
 
   const filtered = useMemo(() => {
     return customers.filter((customer) => {
+      // Search filter
       const matchesSearch =
+        !searchTerm ||
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.email.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      // Status filter
       const matchesStatus = statusFilter === "all" || customer.status === statusFilter
+      
       return matchesSearch && matchesStatus
     })
   }, [searchTerm, statusFilter, customers])
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
-  const paginatedData = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const handleAdd = () => {
     setEditingId(null)
-    setFormData({ name: "", email: "", city: "", address: "", totalOrders: 0, status: "active" })
+    setFormData({ name: "", email: "", phone: "", city: "", totalOrders: 0, status: "active" })
     setIsOpen(true)
   }
 
   const handleEdit = (customer: Customer) => {
     setEditingId(customer.id)
-    setFormData({ ...customer })
+    const { id, joinDate, ...customerData } = customer
+    setFormData(customerData)
     setIsOpen(true)
   }
 
@@ -68,7 +76,11 @@ export default function CustomersPage() {
     if (editingId) {
       setCustomers(customers.map((c) => (c.id === editingId ? { ...c, ...formData, id: editingId } : c)))
     } else {
-      const newCustomer: Customer = { ...formData, id: Date.now().toString() }
+      const newCustomer: Customer = {
+        ...formData,
+        id: Date.now().toString(),
+        joinDate: new Date().toISOString().split("T")[0],
+      }
       setCustomers([...customers, newCustomer])
     }
     setIsOpen(false)
@@ -90,19 +102,16 @@ export default function CustomersPage() {
         </Button>
       </div>
 
+      {/* Custom Filter Section */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
+        <CardContent className="px-5">
+          <div className="flex items-end justify-between gap-3">
+            {/* Left Side - Search Input */}
+            <div className="w-[400px]">
+              <label className="text-sm font-medium mb-1 block">Search</label>
               <div className="relative">
-                <Search
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-                  size={18}
-                />
-                <input
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+                <Input
                   type="text"
                   placeholder="Search by name or email..."
                   value={searchTerm}
@@ -110,22 +119,68 @@ export default function CustomersPage() {
                     setSearchTerm(e.target.value)
                     setCurrentPage(1)
                   }}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background"
+                  className="pl-10"
                 />
               </div>
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as any)
-                setCurrentPage(1)
-              }}
-              className="px-4 py-2 rounded-lg border border-border bg-background"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+
+            {/* Right Side - Status Filter, Page Size, and Clear Button */}
+            <div className="flex items-end gap-2">
+              {/* Status Filter */}
+              <div className="w-[150px]">
+                <label className="text-sm font-medium mb-1 block">Status</label>
+                <Select
+                  value={statusFilter}
+                  onValueChange={(value) => {
+                    setStatusFilter(value)
+                    setCurrentPage(1)
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="All Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Page Size */}
+              <div className="w-[140px]">
+                <label className="text-sm font-medium mb-1 block">Page Size</label>
+                <Select
+                  value={pageSize.toString()}
+                  onValueChange={(value) => {
+                    setPageSize(Number(value))
+                    setCurrentPage(1)
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5</SelectItem>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Clear Filters Button - Only show when filters are active */}
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  onClick={handleClearFilters}
+                  className="gap-2"
+                >
+                  <X size={16} />
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -141,8 +196,8 @@ export default function CustomersPage() {
                 <tr>
                   <th className="text-left py-3 px-4 font-semibold">Name</th>
                   <th className="text-left py-3 px-4 font-semibold">Email</th>
+                  <th className="text-left py-3 px-4 font-semibold">Phone</th>
                   <th className="text-left py-3 px-4 font-semibold">City</th>
-                  <th className="text-left py-3 px-4 font-semibold">Address</th>
                   <th className="text-left py-3 px-4 font-semibold">Orders</th>
                   <th className="text-left py-3 px-4 font-semibold">Status</th>
                   <th className="text-left py-3 px-4 font-semibold">Action</th>
@@ -153,8 +208,8 @@ export default function CustomersPage() {
                   <tr key={customer.id} className="border-b border-border hover:bg-muted/50">
                     <td className="py-3 px-4">{customer.name}</td>
                     <td className="py-3 px-4">{customer.email}</td>
+                    <td className="py-3 px-4">{customer.phone}</td>
                     <td className="py-3 px-4">{customer.city}</td>
-                    <td className="py-3 px-4 text-sm text-muted-foreground">{customer.address}</td>
                     <td className="py-3 px-4">{customer.totalOrders}</td>
                     <td className="py-3 px-4">
                       <Badge variant={customer.status === "active" ? "default" : "secondary"}>
@@ -188,8 +243,8 @@ export default function CustomersPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-6">
             <p className="text-sm text-muted-foreground">
-              Showing {paginatedData.length ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} to{" "}
-              {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+              Showing {paginatedData.length ? (currentPage - 1) * pageSize + 1 : 0} to{" "}
+              {Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
             </p>
             <div className="flex gap-2">
               <Button
@@ -251,22 +306,22 @@ export default function CustomersPage() {
               />
             </div>
             <div>
+              <label className="text-sm font-medium">Phone</label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
+                placeholder="Enter phone number"
+              />
+            </div>
+            <div>
               <label className="text-sm font-medium">City</label>
               <input
                 type="text"
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                 className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Address</label>
-              <textarea
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-                rows={2}
-                placeholder="Enter full address"
               />
             </div>
             <div>
