@@ -5,12 +5,12 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ChevronLeft, ChevronRight, Edit2, Trash2, Plus, Search, X } from "lucide-react"
+import { Edit2, Trash2, Plus, X } from "lucide-react"
 import { mockCustomers, Customer } from "@/data/customers"
+import { SearchInput } from "@/components/common/search-input"
+import { SelectFilter } from "@/components/common/select-filter"
+import { Pagination } from "@/components/common/pagination"
+import { CustomerModal } from "@/components/common/customer-modal"
 
 export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState(1)
@@ -20,13 +20,28 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>(mockCustomers)
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState<Omit<Customer, "id" | "joinDate">>({
+  const [formData, setFormData] = useState({
+    // Personal Information
+    avatar: "",
+    firstName: "",
+    lastName: "",
+    age: "",
+    mobileNumber: "",
+    emailAddress: "",
+    // Address Information
+    houseNo: "",
+    roadName: "",
+    nearbyLandmark: "",
+    state: "",
+    city: "",
+    pincode: "",
+    addressType: "",
+    // Legacy fields for compatibility
     name: "",
     email: "",
     phone: "",
-    city: "",
     totalOrders: 0,
-    status: "active",
+    status: "active" as "active" | "inactive",
   })
 
   // Check if any filters are active
@@ -59,26 +74,92 @@ export default function CustomersPage() {
 
   const handleAdd = () => {
     setEditingId(null)
-    setFormData({ name: "", email: "", phone: "", city: "", totalOrders: 0, status: "active" })
+    setFormData({
+      avatar: "",
+      firstName: "",
+      lastName: "",
+      age: "",
+      mobileNumber: "",
+      emailAddress: "",
+      houseNo: "",
+      roadName: "",
+      nearbyLandmark: "",
+      state: "",
+      city: "",
+      pincode: "",
+      addressType: "",
+      name: "",
+      email: "",
+      phone: "",
+      totalOrders: 0,
+      status: "active",
+    })
     setIsOpen(true)
   }
 
   const handleEdit = (customer: Customer) => {
     setEditingId(customer.id)
-    const { id, joinDate, ...customerData } = customer
-    setFormData(customerData)
+    // For now, we'll split the name into first and last name
+    const nameParts = customer.name.split(" ")
+    setFormData({
+      avatar: "",
+      firstName: nameParts[0] || "",
+      lastName: nameParts.slice(1).join(" ") || "",
+      age: "",
+      mobileNumber: customer.phone || "",
+      emailAddress: customer.email || "",
+      houseNo: "",
+      roadName: "",
+      nearbyLandmark: "",
+      state: "",
+      city: customer.city || "",
+      pincode: "",
+      addressType: "",
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      totalOrders: customer.totalOrders,
+      status: customer.status,
+    })
     setIsOpen(true)
   }
 
+  const handleFormDataChange = (fieldId: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [fieldId]: value }))
+  }
+
   const handleSave = () => {
-    if (!formData.name || !formData.email) return
+    // Validation
+    if (!formData.firstName || !formData.lastName || !formData.emailAddress || !formData.mobileNumber) {
+      return
+    }
+
+    // Combine first and last name for legacy name field
+    const fullName = `${formData.firstName} ${formData.lastName}`.trim()
 
     if (editingId) {
-      setCustomers(customers.map((c) => (c.id === editingId ? { ...c, ...formData, id: editingId } : c)))
+      setCustomers(
+        customers.map((c) =>
+          c.id === editingId
+            ? {
+                ...c,
+                name: fullName,
+                email: formData.emailAddress,
+                phone: formData.mobileNumber,
+                city: formData.city,
+              }
+            : c
+        )
+      )
     } else {
       const newCustomer: Customer = {
-        ...formData,
         id: Date.now().toString(),
+        name: fullName,
+        email: formData.emailAddress,
+        phone: formData.mobileNumber,
+        city: formData.city,
+        totalOrders: 0,
+        status: "active",
         joinDate: new Date().toISOString().split("T")[0],
       }
       setCustomers([...customers, newCustomer])
@@ -107,67 +188,49 @@ export default function CustomersPage() {
         <CardContent className="px-5">
           <div className="flex items-end justify-between gap-3">
             {/* Left Side - Search Input */}
-            <div className="w-[400px]">
-              <label className="text-sm font-medium mb-1 block">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
-                <Input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+            <SearchInput
+              value={searchTerm}
+              onChange={(value) => {
+                setSearchTerm(value)
+                setCurrentPage(1)
+              }}
+              placeholder="Search by name or email..."
+            />
 
             {/* Right Side - Status Filter, Page Size, and Clear Button */}
             <div className="flex items-end gap-2">
               {/* Status Filter */}
-              <div className="w-[150px]">
-                <label className="text-sm font-medium mb-1 block">Status</label>
-                <Select
-                  value={statusFilter}
-                  onValueChange={(value) => {
-                    setStatusFilter(value)
-                    setCurrentPage(1)
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <SelectFilter
+                value={statusFilter}
+                onChange={(value) => {
+                  setStatusFilter(value)
+                  setCurrentPage(1)
+                }}
+                options={[
+                  { value: "all", label: "All Status" },
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
+                ]}
+                label="Status"
+                placeholder="All Status"
+              />
 
               {/* Page Size */}
-              <div className="w-[140px]">
-                <label className="text-sm font-medium mb-1 block">Page Size</label>
-                <Select
-                  value={pageSize.toString()}
-                  onValueChange={(value) => {
-                    setPageSize(Number(value))
-                    setCurrentPage(1)
-                  }}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5</SelectItem>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <SelectFilter
+                value={pageSize.toString()}
+                onChange={(value) => {
+                  setPageSize(Number(value))
+                  setCurrentPage(1)
+                }}
+                options={[
+                  { value: "5", label: "5" },
+                  { value: "10", label: "10" },
+                  { value: "20", label: "20" },
+                  { value: "50", label: "50" },
+                ]}
+                label="Page Size"
+                width="w-[140px]"
+              />
 
               {/* Clear Filters Button - Only show when filters are active */}
               {hasActiveFilters && (
@@ -186,9 +249,6 @@ export default function CustomersPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Customer List</CardTitle>
-        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -241,109 +301,25 @@ export default function CustomersPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-6">
-            <p className="text-sm text-muted-foreground">
-              Showing {paginatedData.length ? (currentPage - 1) * pageSize + 1 : 0} to{" "}
-              {Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft size={16} />
-              </Button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                const pageNum = i + 1
-                return (
-                  <Button
-                    key={pageNum}
-                    variant={currentPage === pageNum ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setCurrentPage(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                )
-              })}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-              >
-                <ChevronRight size={16} />
-              </Button>
-            </div>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={filtered.length}
+            onPageChange={setCurrentPage}
+          />
         </CardContent>
       </Card>
 
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Customer" : "Add New Customer"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Name</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Phone</label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-                placeholder="Enter phone number"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">City</label>
-              <input
-                type="text"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as "active" | "inactive" })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CustomerModal
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        title={editingId ? "Edit Customer" : "Add New Customer"}
+        formData={formData}
+        onFormDataChange={handleFormDataChange}
+        onSave={handleSave}
+        saveLabel={editingId ? "Update" : "Create"}
+      />
     </div>
   )
 }
