@@ -47,6 +47,7 @@ export function Pagination({
           size="sm"
           onClick={handlePrevious}
           disabled={currentPage === 1}
+          className="cursor-pointer"
         >
           <ChevronLeft size={16} />
         </Button>
@@ -56,6 +57,7 @@ export function Pagination({
             variant={currentPage === pageNum ? "default" : "outline"}
             size="sm"
             onClick={() => onPageChange(pageNum)}
+            className="cursor-pointer"
           >
             {pageNum}
           </Button>
@@ -65,6 +67,7 @@ export function Pagination({
           size="sm"
           onClick={handleNext}
           disabled={currentPage === totalPages}
+          className="cursor-pointer"
         >
           <ChevronRight size={16} />
         </Button>

@@ -8,12 +8,15 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft, Check } from "lucide-react"
 import { mockOrders } from "@/data/orders"
 
-const statusSteps = ["created", "verified", "picked", "repaired", "delivered"]
+const statusSteps = ["booked", "verify", "confirmed", "picked", "serviceCenter", "repair", "outForDelivery", "delivered"]
 const statusLabels = {
-  created: "Created",
-  verified: "Verified",
-  picked: "Picked",
-  repaired: "Repaired",
+  booked: "Verify",
+  verify: "Verify",
+  confirmed: "Confirmed",
+  picked: "Pickup",
+  serviceCenter: "Service Center",
+  repair: "Repair",
+  outForDelivery: "Out for Delivery",
   delivered: "Delivered",
 }
 
@@ -34,7 +37,7 @@ export default function OrderDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/admin/orders">
+        <Link href="/orders">
           <Button variant="ghost" size="icon">
             <ArrowLeft size={20} />
           </Button>

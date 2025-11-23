@@ -4,7 +4,7 @@ export interface Order {
   service: string
   category: string
   amount: number
-  status: "created" | "verified" | "picked" | "repaired" | "delivered"
+  status: "booked"| "confirmed" | "picked" | "serviceCenter" | "repair" | "outForDelivery" | "delivered"
   date: string
 }
 
@@ -24,7 +24,7 @@ export const mockOrders: Order[] = [
     service: "Electrical Wiring",
     category: "Electrical",
     amount: 200,
-    status: "repaired",
+    status: "repair",
     date: "2024-01-18",
   },
   {
@@ -42,7 +42,7 @@ export const mockOrders: Order[] = [
     service: "Painting",
     category: "Painting",
     amount: 280,
-    status: "verified",
+    status: "booked",
     date: "2024-02-10",
   },
   {
@@ -51,7 +51,7 @@ export const mockOrders: Order[] = [
     service: "Plumbing Repair",
     category: "Plumbing",
     amount: 175,
-    status: "created",
+    status: "booked",
     date: "2024-02-15",
   },
   {
@@ -69,7 +69,7 @@ export const mockOrders: Order[] = [
     service: "Cabinet Making",
     category: "Carpentry",
     amount: 550,
-    status: "repaired",
+    status: "serviceCenter",
     date: "2024-02-08",
   },
   {
@@ -78,7 +78,7 @@ export const mockOrders: Order[] = [
     service: "Wall Painting",
     category: "Painting",
     amount: 320,
-    status: "picked",
+    status: "outForDelivery",
     date: "2024-02-14",
   },
 ]

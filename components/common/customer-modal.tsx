@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ChevronLeft, ChevronRight, Upload, User } from "lucide-react"
 import { FormField } from "@/components/common/form-field"
+import { MobileNumberField } from "@/components/common/mobile-number-field"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 interface CustomerModalProps {
@@ -151,17 +152,14 @@ export function CustomerModal({
                   value={formData.age}
                   onChange={(value) => onFormDataChange("age", value)}
                 />
-                <FormField
-                  field={{
-                    id: "mobileNumber",
-                    label: "Mobile Number",
-                    type: "tel",
-                    placeholder: "Enter mobile number",
-                    required: true,
-                    colSpan: 1,
-                  }}
+                <MobileNumberField
+                  id="mobileNumber"
+                  label="Mobile Number"
                   value={formData.mobileNumber}
                   onChange={(value) => onFormDataChange("mobileNumber", value)}
+                  placeholder="Enter mobile number"
+                  required={true}
+                  colSpan={1}
                 />
                 <FormField
                   field={{
@@ -170,10 +168,24 @@ export function CustomerModal({
                     type: "email",
                     placeholder: "Enter email address",
                     required: true,
-                    colSpan: 2,
+                    colSpan: 1,
                   }}
                   value={formData.emailAddress}
                   onChange={(value) => onFormDataChange("emailAddress", value)}
+                />
+                <FormField
+                  field={{
+                    id: "status",
+                    label: "Status",
+                    type: "select",
+                    colSpan: 1,
+                    options: [
+                      { value: "active", label: "Active" },
+                      { value: "inactive", label: "Inactive" },
+                    ],
+                  }}
+                  value={formData.status || "active"}
+                  onChange={(value) => onFormDataChange("status", value)}
                 />
               </div>
             </TabsContent>

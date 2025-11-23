@@ -30,12 +30,12 @@ export function SelectFilter({
     <div className={width}>
       <label className="text-sm font-medium mb-1 block">{label}</label>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className={`w-full ${className}`}>
+        <SelectTrigger className={`w-full cursor-pointer ${className}`}>
           <SelectValue placeholder={placeholder || label} />
         </SelectTrigger>
         <SelectContent>
           {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
+            <SelectItem key={option.value} value={option.value} className="cursor-pointer">
               {option.label}
             </SelectItem>
           ))}

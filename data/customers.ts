@@ -1,12 +1,24 @@
 export interface Customer {
   id: string
   name: string
+  firstName?: string
+  lastName?: string
+  avatar?: string
+  age?: string
   email: string
   phone: string
+  mobileNumber?: string
   city: string
   totalOrders: number
   status: "active" | "inactive"
   joinDate: string
+  // Address Information
+  houseNo?: string
+  roadName?: string
+  nearbyLandmark?: string
+  state?: string
+  pincode?: string
+  addressType?: string
 }
 
 export const mockCustomers: Customer[] = [
