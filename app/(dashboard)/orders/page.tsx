@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, X, Eye, CheckCircle, Package, Wrench, Truck } from "lucide-react"
+import { Trash2, X, Eye, CheckCircle, Package, Wrench, Truck, Smartphone, Banknote, CreditCard } from "lucide-react"
 import { mockOrders, type Order } from "@/data/orders"
 import { SearchInput } from "@/components/common/search-input"
 import { SelectFilter } from "@/components/common/select-filter"
@@ -237,9 +237,12 @@ export default function OrdersPage() {
                 <tr>
                   <th className="text-left py-3 px-4 font-semibold">Order ID</th>
                   <th className="text-left py-3 px-4 font-semibold">Customer</th>
-                  <th className="text-left py-3 px-4 font-semibold">Service</th>
+                  <th className="text-left py-3 px-4 font-semibold">Mobile Number</th>
                   <th className="text-left py-3 px-4 font-semibold">Category</th>
                   <th className="text-left py-3 px-4 font-semibold">Amount</th>
+                  <th className="text-left py-3 px-4 font-semibold">Payment Status</th>
+                  <th className="text-left py-3 px-4 font-semibold">Payment Method</th>
+                  <th className="text-left py-3 px-4 font-semibold">Order Date</th>
                   <th className="text-left py-3 px-4 font-semibold">Status</th>
                   <th className="text-left py-3 px-4 font-semibold">Action</th>
                 </tr>
@@ -249,9 +252,43 @@ export default function OrdersPage() {
                   <tr key={order.id} className="border-b border-border hover:bg-muted/50">
                     <td className="py-3 px-4 font-mono text-xs font-semibold">{order.id}</td>
                     <td className="py-3 px-4">{order.customer}</td>
-                    <td className="py-3 px-4">{order.service}</td>
+                    <td className="py-3 px-4">{order.mobileNumber || "N/A"}</td>
                     <td className="py-3 px-4">{order.category}</td>
                     <td className="py-3 px-4 font-semibold">₹{order.amount}</td>
+                    <td className="py-3 px-4">
+                      <Badge
+                        className={
+                          order.paymentStatus === "paid"
+                            ? "bg-green-500 hover:bg-green-600 text-white"
+                            : order.paymentStatus === "pending"
+                            ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                            : order.paymentStatus === "cash"
+                            ? "bg-blue-500 hover:bg-blue-600 text-white"
+                            : "bg-gray-500 hover:bg-gray-600 text-white"
+                        }
+                      >
+                        {order.paymentStatus
+                          ? order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)
+                          : "Pending"}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        {order.paymentMethod === "UPI" && <Smartphone size={16} className="text-blue-500" />}
+                        {order.paymentMethod === "Cash" && <Banknote size={16} className="text-green-500" />}
+                        {order.paymentMethod === "Card" && <CreditCard size={16} className="text-purple-500" />}
+                        <span>{order.paymentMethod || "N/A"}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      {order.date
+                        ? new Date(order.date).toLocaleDateString("en-IN", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })
+                        : "N/A"}
+                    </td>
                     <td className="py-3 px-4">
                       <OrderStatusBadge status={order.status} />
                     </td>

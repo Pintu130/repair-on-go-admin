@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-type OrderStatus = "booked" | "confirmed" | "picked" | "serviceCenter" | "repair" | "outForDelivery" | "delivered"
+type OrderStatus = "booked" | "confirmed" | "picked" | "serviceCenter" | "repair" | "outForDelivery" | "delivered" | "cancelled"
 
 interface OrderStatusBadgeProps {
   status: OrderStatus
@@ -18,6 +18,7 @@ const statusColors: Record<OrderStatus, string> = {
   repair: "bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-600",
   outForDelivery: "bg-orange-500 hover:bg-orange-600 text-white border-orange-600",
   delivered: "bg-green-500 hover:bg-green-600 text-white border-green-600",
+  cancelled: "bg-red-500 hover:bg-red-600 text-white border-red-600",
 }
 
 export const statusLabels: Record<OrderStatus, string> = {
@@ -28,6 +29,7 @@ export const statusLabels: Record<OrderStatus, string> = {
   repair: "Repair",
   outForDelivery: "Out for Delivery",
   delivered: "Delivered",
+  cancelled: "Cancelled",
 }
 
 export function OrderStatusBadge({ status, className }: OrderStatusBadgeProps) {
