@@ -1,11 +1,17 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Search, ChevronLeft, ChevronRight, Trash2, Star, Edit2, Plus } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Trash2, Star, Edit2, Plus, X, MessageSquare, CheckCircle, Eye } from "lucide-react"
+import { SearchInput } from "@/components/common/search-input"
+import { SelectFilter } from "@/components/common/select-filter"
+import { InfoCard } from "@/components/common/info-card"
+import { ReviewModal } from "@/components/common/review-modal"
+import { Pagination } from "@/components/common/pagination"
+import { ConfirmationModal } from "@/components/common/confirmation-modal"
 
 interface Review {
   id: string
@@ -74,22 +80,34 @@ const mockReviews: Review[] = [
   },
 ]
 
-const ITEMS_PER_PAGE = 8
-
 export default function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "approved" | "pending">("all")
   const [ratingFilter, setRatingFilter] = useState<"all" | number>("all")
+
+  // Check if any filters are active
+  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all" || ratingFilter !== "all"
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+    setRatingFilter("all")
+    setCurrentPage(1)
+  }
   const [reviews, setReviews] = useState(mockReviews)
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [viewingComment, setViewingComment] = useState<{ comment: string; customer: string } | null>(null)
   const [formData, setFormData] = useState({
     customer: "",
     product: "",
     rating: 5,
     comment: "",
-    status: "pending" as const,
+    status: "pending" as "approved" | "pending",
   })
 
   const filtered = useMemo(() => {
@@ -109,14 +127,8 @@ export default function ReviewsPage() {
     approvedCount: reviews.filter((r) => r.status === "approved").length,
   }
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
-  const paginatedData = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
-
-  const handleAdd = () => {
-    setEditingId(null)
-    setFormData({ customer: "", product: "", rating: 5, comment: "", status: "pending" })
-    setIsOpen(true)
-  }
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const handleEdit = (review: Review) => {
     setEditingId(review.id)
@@ -150,8 +162,15 @@ export default function ReviewsPage() {
     setIsOpen(false)
   }
 
-  const handleDelete = (id: string) => {
-    setReviews(reviews.filter((r) => r.id !== id))
+  const handleDeleteClick = (id: string) => {
+    setDeletingId(id)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (deletingId) {
+      setReviews(reviews.filter((r) => r.id !== deletingId))
+      setDeletingId(null)
+    }
   }
 
   const handleApprove = (id: string) => {
@@ -179,245 +198,261 @@ export default function ReviewsPage() {
           <h1 className="text-3xl font-bold text-balance">Reviews & Ratings</h1>
           <p className="text-muted-foreground">Manage customer reviews and ratings</p>
         </div>
-        <Button onClick={handleAdd}>
-          <Plus size={16} className="mr-2" /> Add Review
-        </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Reviews</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalReviews}</div>
-            <p className="text-xs text-muted-foreground">Total customer reviews</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.averageRating}/5</div>
-            <p className="text-xs text-muted-foreground">Overall customer satisfaction</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.approvedCount}</div>
-            <p className="text-xs text-muted-foreground">Approved reviews</p>
-          </CardContent>
-        </Card>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <InfoCard
+          icon={MessageSquare}
+          label="Total Reviews"
+          value={stats.totalReviews.toString()}
+          iconColor="text-blue-500"
+          iconBgColor="bg-blue-500/10"
+        />
+        <InfoCard
+          icon={Star}
+          label="Average Rating"
+          value={`${stats.averageRating}/5`}
+          iconColor="text-yellow-500"
+          iconBgColor="bg-yellow-500/10"
+        />
+        <InfoCard
+          icon={CheckCircle}
+          label="Approved"
+          value={stats.approvedCount.toString()}
+          iconColor="text-green-500"
+          iconBgColor="bg-green-500/10"
+        />
       </div>
 
+      {/* Custom Filter Section */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-                  size={18}
-                />
-                <input
-                  type="text"
-                  placeholder="Search by customer or product..."
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background"
-                />
-              </div>
+        <CardContent className="px-5">
+          <div className="flex items-end justify-between gap-3">
+            {/* Left Side - Search Input */}
+            <SearchInput
+              value={searchTerm}
+              onChange={(value) => {
+                setSearchTerm(value)
+                setCurrentPage(1)
+              }}
+              placeholder="Search by customer or product..."
+            />
+
+            {/* Right Side - Status Filter, Rating Filter, Page Size, and Clear Button */}
+            <div className="flex items-end gap-2">
+              {/* Status Filter */}
+              <SelectFilter
+                value={statusFilter}
+                onChange={(value) => {
+                  setStatusFilter(value as "all" | "approved" | "pending")
+                  setCurrentPage(1)
+                }}
+                options={[
+                  { value: "all", label: "All Status" },
+                  { value: "approved", label: "Approved" },
+                  { value: "pending", label: "Pending" },
+                ]}
+                label="Status"
+                placeholder="All Status"
+              />
+
+              {/* Rating Filter */}
+              <SelectFilter
+                value={ratingFilter === "all" ? "all" : ratingFilter.toString()}
+                onChange={(value) => {
+                  setRatingFilter(value === "all" ? "all" : Number(value))
+                  setCurrentPage(1)
+                }}
+                options={[
+                  { value: "all", label: "All Ratings" },
+                  { value: "5", label: "5 Stars" },
+                  { value: "4", label: "4 Stars" },
+                  { value: "3", label: "3 Stars" },
+                  { value: "2", label: "2 Stars" },
+                  { value: "1", label: "1 Star" },
+                ]}
+                label="Rating"
+                placeholder="All Ratings"
+              />
+
+              {/* Page Size */}
+              <SelectFilter
+                value={pageSize.toString()}
+                onChange={(value) => {
+                  setPageSize(Number(value))
+                  setCurrentPage(1)
+                }}
+                options={[
+                  { value: "5", label: "5" },
+                  { value: "10", label: "10" },
+                  { value: "20", label: "20" },
+                  { value: "50", label: "50" },
+                ]}
+                label="Page Size"
+                width="w-[140px]"
+              />
+
+              {/* Clear Filters Button - Only show when filters are active */}
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  onClick={handleClearFilters}
+                  className="gap-2 cursor-pointer"
+                >
+                  <X size={16} />
+                  Clear
+                </Button>
+              )}
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as any)
-                setCurrentPage(1)
-              }}
-              className="px-4 py-2 rounded-lg border border-border bg-background"
-            >
-              <option value="all">All Status</option>
-              <option value="approved">Approved</option>
-              <option value="pending">Pending</option>
-            </select>
-            <select
-              value={ratingFilter}
-              onChange={(e) => {
-                setRatingFilter(e.target.value === "all" ? "all" : Number(e.target.value))
-                setCurrentPage(1)
-              }}
-              className="px-4 py-2 rounded-lg border border-border bg-background"
-            >
-              <option value="all">All Ratings</option>
-              <option value="5">5 Stars</option>
-              <option value="4">4 Stars</option>
-              <option value="3">3 Stars</option>
-              <option value="2">2 Stars</option>
-              <option value="1">1 Star</option>
-            </select>
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Reviews List</CardTitle>
-        </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {paginatedData.map((review) => (
-              <div key={review.id} className="border-b border-border pb-4 last:border-0">
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <p className="font-semibold">{review.customer}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {review.product} • {review.date}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div>{renderStars(review.rating)}</div>
-                    <Badge variant={review.status === "approved" ? "default" : "secondary"}>
-                      {review.status === "approved" ? "Approved" : "Pending"}
-                    </Badge>
-                  </div>
-                </div>
-                <p className="text-sm mb-3">{review.comment}</p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(review)}>
-                    <Edit2 size={14} className="mr-2" /> Edit
-                  </Button>
-                  {review.status === "pending" && (
-                    <Button size="sm" onClick={() => handleApprove(review.id)}>
-                      Approve
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDelete(review.id)}
-                    className="text-destructive"
-                  >
-                    <Trash2 size={14} className="mr-2" /> Delete
-                  </Button>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-border">
+                <tr>
+                  <th className="text-left py-3 px-4 font-semibold">Customer</th>
+                  <th className="text-left py-3 px-4 font-semibold">Category</th>
+                  <th className="text-left py-3 px-4 font-semibold">Rating</th>
+                  <th className="text-left py-3 px-4 font-semibold">Comment</th>
+                  <th className="text-left py-3 px-4 font-semibold">Date</th>
+                  <th className="text-left py-3 px-4 font-semibold">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedData.map((review) => (
+                  <tr key={review.id} className="border-b border-border hover:bg-muted/50">
+                    <td className="py-3 px-4">
+                      <p className="font-semibold">{review.customer}</p>
+                    </td>
+                    <td className="py-3 px-4">
+                      <p className="text-muted-foreground">{review.product}</p>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-1">
+                        {renderStars(review.rating)}
+                        <span className="text-xs text-muted-foreground ml-1">({review.rating})</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setViewingComment({ comment: review.comment, customer: review.customer })}
+                          className="cursor-pointer shrink-0 h-7 px-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-primary-foreground"
+                        >
+                          Show
+                        </Button>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <p className="text-muted-foreground">{review.date}</p>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Badge variant={review.status === "approved" ? "default" : "secondary"}>
+                        {review.status === "approved" ? "Approved" : "Pending"}
+                      </Badge>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handleEdit(review)} className="cursor-pointer shrink-0">
+                          <Edit2 size={14} />
+                        </Button>
+                        {review.status === "pending" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleApprove(review.id)}
+                            className="cursor-pointer shrink-0"
+                          >
+                            <CheckCircle size={14} />
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteClick(review.id)}
+                          className="text-destructive cursor-pointer shrink-0"
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-6 pt-6 border-t border-border">
-            <p className="text-sm text-muted-foreground">
-              Showing {paginatedData.length ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} to{" "}
-              {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft size={16} />
-              </Button>
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => (
-                <Button
-                  key={i + 1}
-                  variant={currentPage === i + 1 ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setCurrentPage(i + 1)}
-                >
-                  {i + 1}
-                </Button>
-              ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-              >
-                <ChevronRight size={16} />
-              </Button>
-            </div>
-          </div>
+          {totalPages > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={filtered.length}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </CardContent>
       </Card>
 
-      {/* Add/Edit review dialog */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent>
+      {/* Add/Edit Review Modal */}
+      <ReviewModal
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsOpen(false)
+            setEditingId(null)
+            setFormData({ customer: "", product: "", rating: 5, comment: "", status: "pending" })
+          } else {
+            setIsOpen(open)
+          }
+        }}
+        formData={formData}
+        onFormDataChange={setFormData}
+        onSave={handleSave}
+        onCancel={() => {
+          setIsOpen(false)
+          setEditingId(null)
+          setFormData({ customer: "", product: "", rating: 5, comment: "", status: "pending" })
+        }}
+        isEditing={!!editingId}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        open={!!deletingId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingId(null)
+          }
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Review?"
+        description="Are you sure you want to delete this review? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
+
+      {/* Comment View Dialog */}
+      <Dialog open={!!viewingComment} onOpenChange={(open) => !open && setViewingComment(null)}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Review" : "Add New Review"}</DialogTitle>
+            <DialogTitle>Review Comment - {viewingComment?.customer}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Customer Name</label>
-              <input
-                type="text"
-                value={formData.customer}
-                onChange={(e) => setFormData({ ...formData, customer: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Product/Service</label>
-              <input
-                type="text"
-                value={formData.product}
-                onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Rating</label>
-              <select
-                value={formData.rating}
-                onChange={(e) => setFormData({ ...formData, rating: Number.parseInt(e.target.value) })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              >
-                <option value="1">1 Star</option>
-                <option value="2">2 Stars</option>
-                <option value="3">3 Stars</option>
-                <option value="4">4 Stars</option>
-                <option value="5">5 Stars</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Comment</label>
-              <textarea
-                value={formData.comment}
-                onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-                rows={3}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                className="w-full mt-1 px-3 py-2 border border-border rounded-lg bg-background"
-              >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-              </select>
-            </div>
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+              {viewingComment?.comment}
+            </p>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>{editingId ? "Update" : "Add"}</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

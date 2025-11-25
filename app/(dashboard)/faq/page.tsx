@@ -64,7 +64,7 @@ export default function FAQPage() {
           <h1 className="text-3xl font-bold text-balance">FAQ</h1>
           <p className="text-muted-foreground">Manage frequently asked questions</p>
         </div>
-        <Button onClick={() => setIsAdding(true)}>
+        <Button onClick={() => setIsAdding(true)} className="cursor-pointer">
           <Plus size={16} className="mr-2" /> Add FAQ
         </Button>
       </div>
@@ -90,9 +90,10 @@ export default function FAQPage() {
               rows={4}
             />
             <div className="flex gap-3">
-              <Button onClick={editingId ? handleSaveEdit : handleAdd}>{editingId ? "Save" : "Add"}</Button>
+              <Button onClick={editingId ? handleSaveEdit : handleAdd} className="cursor-pointer">{editingId ? "Save" : "Add"}</Button>
               <Button
                 variant="outline"
+                className="cursor-pointer"
                 onClick={() => {
                   setIsAdding(false)
                   setEditingId(null)
@@ -119,19 +120,19 @@ export default function FAQPage() {
               </div>
             </CardHeader>
             {expandedId === faq.id && (
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-2">
                 <p className="text-muted-foreground">{faq.answer}</p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(faq)} className="flex-1">
-                    <Edit2 size={16} className="mr-2" /> Edit
+                <div className="flex gap-2 justify-start">
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(faq)} className="cursor-pointer shrink-0">
+                    <Edit2 size={14} />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleDelete(faq.id)}
-                    className="flex-1 text-destructive"
+                    className="text-destructive cursor-pointer shrink-0"
                   >
-                    <Trash2 size={16} className="mr-2" /> Delete
+                    <Trash2 size={14} />
                   </Button>
                 </div>
               </CardContent>
