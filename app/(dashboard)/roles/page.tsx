@@ -4,19 +4,9 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Edit2, Trash2, Plus, Eye, Edit, Trash } from "lucide-react"
-
-interface Permission {
-  view: boolean
-  edit: boolean
-  delete: boolean
-}
-
-interface RolePermissions {
-  [page: string]: Permission
-}
+import { Edit2, Trash2, Plus } from "lucide-react"
+import { RoleModal, Permission, RolePermissions } from "@/components/common/role-modal"
+import { ConfirmationModal } from "@/components/common/confirmation-modal"
 
 interface Role {
   id: string
@@ -24,7 +14,6 @@ interface Role {
   permissions: RolePermissions
   userCount: number
 }
-console.log('11111');
 
 const defaultPermission: Permission = { view: false, edit: false, delete: false }
 
@@ -78,6 +67,7 @@ export default function RolesPage() {
   ])
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({ name: "", permissions: createDefaultPermissions() })
 
   const handleAdd = () => {
@@ -115,24 +105,17 @@ export default function RolesPage() {
     setIsOpen(false)
   }
 
-  const handleDelete = (id: string) => {
-    if (confirm("Are you sure you want to delete this role?")) {
-      setRoles(roles.filter((r) => r.id !== id))
+  const handleDeleteClick = (id: string) => {
+    setDeletingId(id)
+  }
+
+  const handleDeleteConfirm = () => {
+    if (deletingId) {
+      setRoles(roles.filter((r) => r.id !== deletingId))
+      setDeletingId(null)
     }
   }
 
-  const togglePermission = (page: string, type: 'view' | 'edit' | 'delete') => {
-    setFormData((prev) => ({
-      ...prev,
-      permissions: {
-        ...prev.permissions,
-        [page]: {
-          ...prev.permissions[page],
-          [type]: !prev.permissions[page][type],
-        },
-      },
-    }))
-  }
 
   const getPermissionCount = (permissions: RolePermissions) => {
     let count = 0
@@ -151,7 +134,7 @@ export default function RolesPage() {
           <h1 className="text-3xl font-bold text-balance">Role Management</h1>
           <p className="text-muted-foreground">Manage user roles and permissions</p>
         </div>
-        <Button onClick={handleAdd}>
+        <Button onClick={handleAdd} className="cursor-pointer">
           <Plus size={16} className="mr-2" /> Add Role
         </Button>
       </div>
@@ -175,14 +158,14 @@ export default function RolesPage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleEdit(role)} className="flex-1">
+                <Button variant="outline" size="sm" onClick={() => handleEdit(role)} className="flex-1 cursor-pointer">
                   <Edit2 size={16} className="mr-2" /> Edit
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleDelete(role.id)}
-                  className="flex-1 text-destructive"
+                  onClick={() => handleDeleteClick(role.id)}
+                  className="flex-1 text-destructive cursor-pointer"
                 >
                   <Trash2 size={16} className="mr-2" /> Delete
                 </Button>
@@ -192,176 +175,45 @@ export default function RolesPage() {
         ))}
       </div>
 
-      {/* Add/Edit role dialog */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Role" : "Add New Role"}</DialogTitle>
-            <p className="text-sm text-muted-foreground">Create a new role and assign permissions</p>
-          </DialogHeader>
-          <div className="space-y-4 flex-1 overflow-y-auto px-2">
-            <div>
-              <label className="text-sm font-medium block mb-2">Role Name *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-                placeholder="Enter role name"
-              />
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-3 block">Permissions</label>
-              <div className="space-y-3">
-                {/* Dashboard Section */}
-                <div className="border border-border rounded-lg p-4 bg-muted/20">
-                  <h3 className="font-semibold mb-3">Dashboard</h3>
-                  <div className="space-y-3">
-                    <PermissionRow 
-                      label="Dashboard" 
-                      permissions={formData.permissions["Dashboard"]}
-                      onToggle={(type) => togglePermission("Dashboard", type)}
-                    />
-                  </div>
-                </div>
+      {/* Add/Edit role modal */}
+      <RoleModal
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsOpen(false)
+            setEditingId(null)
+            setFormData({ name: "", permissions: createDefaultPermissions() })
+          } else {
+            setIsOpen(open)
+          }
+        }}
+        formData={formData}
+        onFormDataChange={setFormData}
+        onSave={handleSave}
+        onCancel={() => {
+          setIsOpen(false)
+          setEditingId(null)
+          setFormData({ name: "", permissions: createDefaultPermissions() })
+        }}
+        isEditing={!!editingId}
+      />
 
-                {/* User Management Section */}
-                <div className="border border-border rounded-lg p-4 bg-muted/20">
-                  <h3 className="font-semibold mb-3">User Management</h3>
-                  <div className="space-y-3">
-                    <PermissionRow 
-                      label="Customers" 
-                      permissions={formData.permissions["Customers"]}
-                      onToggle={(type) => togglePermission("Customers", type)}
-                    />
-                    <PermissionRow 
-                      label="Employees" 
-                      permissions={formData.permissions["Employees"]}
-                      onToggle={(type) => togglePermission("Employees", type)}
-                    />
-                  </div>
-                </div>
-
-                {/* Order & Category Management */}
-                <div className="border border-border rounded-lg p-4 bg-muted/20">
-                  <h3 className="font-semibold mb-3">Order & Category Management</h3>
-                  <div className="space-y-3">
-                    <PermissionRow 
-                      label="Orders" 
-                      permissions={formData.permissions["Orders"]}
-                      onToggle={(type) => togglePermission("Orders", type)}
-                    />
-                    <PermissionRow 
-                      label="Categories" 
-                      permissions={formData.permissions["Categories"]}
-                      onToggle={(type) => togglePermission("Categories", type)}
-                    />
-                    <PermissionRow 
-                      label="Reviews" 
-                      permissions={formData.permissions["Reviews"]}
-                      onToggle={(type) => togglePermission("Reviews", type)}
-                    />
-                  </div>
-                </div>
-
-                {/* Other Sections */}
-                <div className="border border-border rounded-lg p-4 bg-muted/20">
-                  <h3 className="font-semibold mb-3">Other</h3>
-                  <div className="space-y-3">
-                    <PermissionRow 
-                      label="FAQ" 
-                      permissions={formData.permissions["FAQ"]}
-                      onToggle={(type) => togglePermission("FAQ", type)}
-                    />
-                    <PermissionRow 
-                      label="Payments" 
-                      permissions={formData.permissions["Payments"]}
-                      onToggle={(type) => togglePermission("Payments", type)}
-                    />
-                    <PermissionRow 
-                      label="Announcements" 
-                      permissions={formData.permissions["Announcements"]}
-                      onToggle={(type) => togglePermission("Announcements", type)}
-                    />
-                    <PermissionRow 
-                      label="SEO" 
-                      permissions={formData.permissions["SEO"]}
-                      onToggle={(type) => togglePermission("SEO", type)}
-                    />
-                    <PermissionRow 
-                      label="Web Settings" 
-                      permissions={formData.permissions["Web Settings"]}
-                      onToggle={(type) => togglePermission("Web Settings", type)}
-                    />
-                    <PermissionRow 
-                      label="Role Management" 
-                      permissions={formData.permissions["Role Management"]}
-                      onToggle={(type) => togglePermission("Role Management", type)}
-                    />
-                    <PermissionRow 
-                      label="Admin Users" 
-                      permissions={formData.permissions["Admin Users"]}
-                      onToggle={(type) => togglePermission("Admin Users", type)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setIsOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!formData.name.trim()}>
-              {editingId ? "Update Role" : "Add User"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        open={!!deletingId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingId(null)
+          }
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Role?"
+        description="Are you sure you want to delete this role? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+      />
     </div>
   )
 }
 
-// Permission Row Component
-function PermissionRow({ 
-  label, 
-  permissions, 
-  onToggle 
-}: { 
-  label: string
-  permissions: Permission
-  onToggle: (type: 'view' | 'edit' | 'delete') => void
-}) {
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
-      <span className="text-sm font-medium flex-1">{label}</span>
-      <div className="flex items-center gap-6">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Checkbox 
-            checked={permissions.view}
-            onCheckedChange={() => onToggle('view')}
-          />
-          <Eye className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">View</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Checkbox 
-            checked={permissions.edit}
-            onCheckedChange={() => onToggle('edit')}
-          />
-          <Edit className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Edit</span>
-        </label>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <Checkbox 
-            checked={permissions.delete}
-            onCheckedChange={() => onToggle('delete')}
-          />
-          <Trash className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Delete</span>
-        </label>
-      </div>
-    </div>
-  )
-}

@@ -19,6 +19,7 @@ import {
   Settings,
   Lock,
   UserCog,
+  Ticket,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -35,6 +36,7 @@ export function Sidebar() {
     { label: "Reviews", href: "/reviews", icon: Star },
     { label: "FAQ", href: "/faq", icon: HelpCircle },
     { label: "Payments", href: "/payments", icon: CreditCard },
+    { label: "Coupons", href: "/coupons", icon: Ticket },
     { label: "Announcements", href: "/announcements", icon: Megaphone },
     { label: "SEO", href: "/seo", icon: Search },
     { label: "Web Settings", href: "/web-settings", icon: Settings },
