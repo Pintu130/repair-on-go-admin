@@ -1,12 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
-import { Spinner } from "@/components/ui/spinner"
+import { Loader } from "@/components/ui/loader"
 
 export default function DashboardLayout({
   children,
@@ -15,6 +15,12 @@ export default function DashboardLayout({
 }) {
   const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
+  const [showLoader, setShowLoader] = useState(true)
+  const [hasMounted, setHasMounted] = useState(false)
+
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -22,11 +28,22 @@ export default function DashboardLayout({
     }
   }, [isAuthenticated, isLoading, router])
 
-  // Show loading spinner while checking authentication
-  if (isLoading) {
+  // Show loader for minimum 1 second to ensure it's always visible
+  useEffect(() => {
+    if (hasMounted && !isLoading && isAuthenticated) {
+      // Always show loader for at least 1 second after mount
+      const timer = setTimeout(() => {
+        setShowLoader(false)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [hasMounted, isLoading, isAuthenticated])
+
+  // Show loading loader while checking authentication or during minimum display time
+  if (!hasMounted || isLoading || showLoader) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <Spinner />
+        <Loader size="md" />
       </div>
     )
   }

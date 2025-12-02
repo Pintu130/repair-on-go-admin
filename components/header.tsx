@@ -20,19 +20,19 @@ export function Header() {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const { logout } = useAuth()
+  const { logout, user: authUser } = useAuth()
 
-  // Static user info for now – future me yahan se context/API se dynamic data la sakta hai
+  // Use user data from auth context, fallback to default if not available
   const user = {
-    name: "Admin User",
-    email: "admin@repairon.go",
-    role: "Super Admin",
+    name: authUser?.name || "Admin User",
+    email: authUser?.email || "admin@repairon.go",
+    role: authUser?.role || "Super Admin",
   }
 
   return (
     <header className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg sticky top-0 z-20">
       <div className="flex items-center justify-end px-6 py-4 gap-4">
-      
+
         {/* Right Section */}
         <div className="flex items-center gap-6">
           {/* Mobile Menu Button (placeholder for future) */}
@@ -56,15 +56,15 @@ export function Header() {
             {/* Avatar + Dropdown + Change Password Modal */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                  <div className="relative h-9 w-9 rounded-full overflow-hidden border border-primary-foreground/30 bg-primary-foreground/20 flex items-center justify-center cursor-pointer">
-                    <Image
-                      src="/placeholder-user.jpg"
-                      alt={user.name}
-                      fill
-                      sizes="36px"
-                      className="object-cover"
-                    />
-                  </div>
+                <div className="relative h-9 w-9 rounded-full overflow-hidden border border-primary-foreground/30 bg-primary-foreground/20 flex items-center justify-center cursor-pointer">
+                  <Image
+                    src="/placeholder-user.jpg"
+                    alt={user.name}
+                    fill
+                    sizes="36px"
+                    className="object-cover"
+                  />
+                </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel className="flex items-center gap-2">

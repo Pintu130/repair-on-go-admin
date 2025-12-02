@@ -6,18 +6,19 @@ import { Eye, EyeOff } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { useLoginMutation } from "@/lib/store/api/authApi"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("admin@repairon.go")
-  const [password, setPassword] = useState("password")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const { login, isAuthenticated, isLoading: authLoading } = useAuth()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const router = useRouter()
+  const [loginMutation, { isLoading: isLoginLoading }] = useLoginMutation()
 
   // Redirect to dashboard if already authenticated
   useEffect(() => {
@@ -26,23 +27,37 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, authLoading, router])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
-    setIsLoading(true)
 
     if (!email || !password) {
       setError("Please fill in all fields")
-      setIsLoading(false)
       return
     }
 
-    // Simple demo credentials
-    if (email === "admin@repairon.go" && password === "password") {
-      login(email, password)
-    } else {
-      setError("Invalid credentials. Try: admin@repairon.go / password")
-      setIsLoading(false)
+    try {
+      const result = await loginMutation({ email, password }).unwrap()
+      
+      if (result.success) {
+        // Login successful - cookies are already set
+        console.log("✅ Login successful, updating auth state...")
+        
+        // Trigger auth state refresh event immediately (synchronous check)
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("auth-state-refresh"))
+          
+          // Wait a brief moment for auth context to update, then redirect
+          // This ensures smooth navigation without page reload
+          setTimeout(() => {
+            router.push("/dashboard")
+          }, 150)
+        }
+      }
+    } catch (err: any) {
+      // Handle error from RTK Query
+      const errorMessage = err?.data?.error || err?.data?.data || err?.error || err?.message || "Login failed. Please try again."
+      setError(errorMessage)
     }
   }
 
@@ -120,9 +135,9 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   className="w-full cursor-pointer"
-                  disabled={isLoading}
+                  disabled={isLoginLoading || authLoading}
                 >
-                  {isLoading ? (
+                  {isLoginLoading || authLoading ? (
                     <span className="inline-flex items-center gap-2">
                       <Spinner className="text-background" />
                       <span>Signing in...</span>
