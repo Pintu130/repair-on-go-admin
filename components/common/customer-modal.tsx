@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Upload, User } from "lucide-react"
 import { FormField } from "@/components/common/form-field"
 import { MobileNumberField } from "@/components/common/mobile-number-field"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useToast } from "@/hooks/use-toast"
 
 interface CustomerModalProps {
   open: boolean
@@ -19,6 +20,7 @@ interface CustomerModalProps {
   saveLabel?: string
   cancelLabel?: string
   isLoading?: boolean
+  isEditing?: boolean
 }
 
 export function CustomerModal({
@@ -31,8 +33,10 @@ export function CustomerModal({
   saveLabel = "Save",
   cancelLabel = "Cancel",
   isLoading = false,
+  isEditing = false,
 }: CustomerModalProps) {
   const [activeTab, setActiveTab] = useState(0)
+  const { toast } = useToast()
 
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen) {
@@ -79,7 +83,7 @@ export function CustomerModal({
               <div className="flex flex-col items-center gap-3 mb-6 pb-6 border-b border-border">
                 <div className="relative">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src={formData.avatar || ""} alt="Customer Avatar" />
+                    <AvatarImage src={formData.image || formData.avatar || ""} alt="Customer Avatar" />
                     <AvatarFallback className="bg-muted text-muted-foreground">
                       <User size={32} />
                     </AvatarFallback>
@@ -95,9 +99,33 @@ export function CustomerModal({
                       input.onchange = (e) => {
                         const file = (e.target as HTMLInputElement).files?.[0]
                         if (file) {
+                          // Validate image file
+                          if (!file.type.startsWith("image/")) {
+                            toast({
+                              title: "Invalid File Type",
+                              description: "Please upload a valid image file",
+                              variant: "destructive",
+                            })
+                            return
+                          }
+                          
+                          // Check file size (max 5MB)
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast({
+                              title: "File Too Large",
+                              description: "Image size should be less than 5MB",
+                              variant: "destructive",
+                            })
+                            return
+                          }
+                          
                           const reader = new FileReader()
                           reader.onloadend = () => {
-                            onFormDataChange("avatar", reader.result as string)
+                            const imageData = reader.result as string
+                            // Store image in "image" key as per requirement
+                            onFormDataChange("image", imageData)
+                            // Also keep avatar for backward compatibility
+                            onFormDataChange("avatar", imageData)
                           }
                           reader.readAsDataURL(file)
                         }
@@ -169,10 +197,25 @@ export function CustomerModal({
                     placeholder: "Enter email address",
                     required: true,
                     colSpan: 1,
+                    disabled: isEditing, // Disable email in edit mode
                   }}
                   value={formData.emailAddress}
                   onChange={(value) => onFormDataChange("emailAddress", value)}
                 />
+                {!isEditing && (
+                  <FormField
+                    field={{
+                      id: "password",
+                      label: "Password",
+                      type: "password",
+                      placeholder: "Enter password",
+                      required: true,
+                      colSpan: 1,
+                    }}
+                    value={formData.password || ""}
+                    onChange={(value) => onFormDataChange("password", value)}
+                  />
+                )}
                 <FormField
                   field={{
                     id: "status",

@@ -86,20 +86,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: User | null) => {
       if (!firebaseChecked) {
         firebaseChecked = true
-        console.log("🔥 Firebase auth state initialized:", firebaseUser ? "User exists" : "No user")
       }
       
       // Always check cookies first - they are the source of truth
       const cookieAuth = checkCookieAuth()
       const userData = getUserData()
       
-      console.log("🍪 Cookie auth check:", cookieAuth, "User data:", userData ? "Exists" : "Missing")
       
       if (cookieAuth && userData) {
         // Valid cookies exist - user is authenticated (regardless of Firebase state)
         setUser(userData)
         setIsAuthenticated(true)
-        console.log("✅ User authenticated via cookies")
       } else {
         // No valid cookies - user is not authenticated
         // Only clear Firebase if we're intentionally logging out

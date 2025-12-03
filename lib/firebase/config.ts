@@ -2,6 +2,7 @@ import { initializeApp, getApps, FirebaseApp } from "firebase/app"
 import { getAnalytics, Analytics, isSupported } from "firebase/analytics"
 import { getAuth, Auth } from "firebase/auth"
 import { getFirestore, Firestore } from "firebase/firestore"
+import { getStorage, FirebaseStorage } from "firebase/storage"
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
@@ -23,6 +24,7 @@ if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.proj
 let app: FirebaseApp
 let auth: Auth
 let db: Firestore
+let storage: FirebaseStorage | null = null
 let analytics: Analytics | null = null
 
 if (!getApps().length) {
@@ -35,8 +37,11 @@ if (!getApps().length) {
 auth = getAuth(app)
 db = getFirestore(app)
 
-// Initialize Analytics only on client side
+// Initialize Storage only on client side
 if (typeof window !== "undefined") {
+  storage = getStorage(app)
+  
+  // Initialize Analytics only on client side
   isSupported().then((supported) => {
     if (supported) {
       analytics = getAnalytics(app)
@@ -44,5 +49,5 @@ if (typeof window !== "undefined") {
   })
 }
 
-export { app, auth, db, analytics }
+export { app, auth, db, storage, analytics }
 

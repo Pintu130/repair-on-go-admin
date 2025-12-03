@@ -4,8 +4,8 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Edit2, Trash2, Plus, X, Eye } from "lucide-react"
-import { mockCustomers, Customer } from "@/data/customers"
+import { Edit2, Trash2, Plus, X, Eye, Loader2 } from "lucide-react"
+import { Customer } from "@/data/customers"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { SearchInput } from "@/components/common/search-input"
 import { SelectFilter } from "@/components/common/select-filter"
@@ -13,13 +13,24 @@ import { Pagination } from "@/components/common/pagination"
 import { CustomerModal } from "@/components/common/customer-modal"
 import { StatusBadge } from "@/components/common/status-badge"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
+import { useGetCustomersQuery, useCreateCustomerMutation, useUpdateCustomerMutation } from "@/lib/store/api/customersApi"
+import { Loader } from "@/components/ui/loader"
+import { useToast } from "@/hooks/use-toast"
 
 export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers)
+  
+  // Fetch customers from Firebase
+  const { data, isLoading, isError, error, refetch } = useGetCustomersQuery()
+  const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
+  const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
+  const { toast } = useToast()
+  
+  // Extract customers from API response or use empty array
+  const customers = data?.customers || []
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -27,11 +38,13 @@ export default function CustomersPage() {
   const [formData, setFormData] = useState({
     // Personal Information
     avatar: "",
+    image: "", // Image stored in "image" key as per requirement
     firstName: "",
     lastName: "",
     age: "",
     mobileNumber: "",
     emailAddress: "",
+    password: "", // Password for Firebase Authentication (only used during create)
     // Address Information
     houseNo: "",
     roadName: "",
@@ -80,11 +93,13 @@ export default function CustomersPage() {
     setEditingId(null)
     setFormData({
       avatar: "",
+      image: "",
       firstName: "",
       lastName: "",
       age: "",
       mobileNumber: "",
       emailAddress: "",
+      password: "", // Password for Firebase Authentication
       houseNo: "",
       roadName: "",
       nearbyLandmark: "",
@@ -103,22 +118,22 @@ export default function CustomersPage() {
 
   const handleEdit = (customer: Customer) => {
     setEditingId(customer.id)
-    // For now, we'll split the name into first and last name
-    const nameParts = customer.name.split(" ")
     setFormData({
-      avatar: "",
-      firstName: nameParts[0] || "",
-      lastName: nameParts.slice(1).join(" ") || "",
-      age: "",
-      mobileNumber: customer.phone || "",
+      avatar: customer.avatar || "",
+      image: customer.avatar || "", // Store image in image key
+      firstName: customer.firstName || customer.name.split(" ")[0] || "",
+      lastName: customer.lastName || customer.name.split(" ").slice(1).join(" ") || "",
+      age: customer.age || "",
+      mobileNumber: customer.mobileNumber || customer.phone || "",
       emailAddress: customer.email || "",
-      houseNo: "",
-      roadName: "",
-      nearbyLandmark: "",
-      state: "",
+      password: "", // Password not required for edit (email disabled in edit mode)
+      houseNo: customer.houseNo || "",
+      roadName: customer.roadName || "",
+      nearbyLandmark: customer.nearbyLandmark || "",
+      state: customer.state || "",
       city: customer.city || "",
-      pincode: "",
-      addressType: "",
+      pincode: customer.pincode || "",
+      addressType: customer.addressType || "",
       name: customer.name,
       email: customer.email,
       phone: customer.phone,
@@ -132,43 +147,124 @@ export default function CustomersPage() {
     setFormData((prev) => ({ ...prev, [fieldId]: value }))
   }
 
-  const handleSave = () => {
-    // Validation
+  const handleSave = async () => {
+    console.log("🔵 handleSave called", { editingId, formData: { ...formData, password: formData.password ? "***" : "" } })
+    
+    // Validation for required fields
     if (!formData.firstName || !formData.lastName || !formData.emailAddress || !formData.mobileNumber) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required fields (First Name, Last Name, Email, Mobile Number)",
+        variant: "destructive",
+      })
       return
     }
 
-    // Combine first and last name for legacy name field
-    const fullName = `${formData.firstName} ${formData.lastName}`.trim()
+    // Password validation for create mode only
+    if (!editingId && !formData.password) {
+      toast({
+        title: "Validation Error",
+        description: "Password is required to create a customer",
+        variant: "destructive",
+      })
+      return
+    }
 
-    if (editingId) {
-      setCustomers(
-        customers.map((c) =>
-          c.id === editingId
-            ? {
-                ...c,
-                name: fullName,
-                email: formData.emailAddress,
-                phone: formData.mobileNumber,
-                city: formData.city,
-              }
-            : c
-        )
-      )
-    } else {
-      const newCustomer: Customer = {
-        id: Date.now().toString(),
-        name: fullName,
-        email: formData.emailAddress,
-        phone: formData.mobileNumber,
-        city: formData.city,
+    // Password length validation for create mode
+    if (!editingId && formData.password && formData.password.length < 6) {
+      toast({
+        title: "Validation Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const customerData: any = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        emailAddress: formData.emailAddress,
+        email: formData.emailAddress, // For compatibility
+        mobileNumber: formData.mobileNumber,
+        phone: formData.mobileNumber, // For compatibility
+        age: formData.age || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        pincode: formData.pincode || null,
+        houseNo: formData.houseNo || null,
+        roadName: formData.roadName || null,
+        nearbyLandmark: formData.nearbyLandmark || null,
+        addressType: formData.addressType || null,
+        status: formData.status || "active",
+        image: formData.image || formData.avatar || null, // Store in "image" key
+        avatar: formData.image || formData.avatar || null, // For backward compatibility
+      }
+
+      // Include password only when creating (not updating)
+      if (!editingId && formData.password) {
+        customerData.password = formData.password
+      }
+
+      if (editingId) {
+        // Update existing customer
+        await updateCustomer({
+          customerId: editingId,
+          customerData: customerData,
+        }).unwrap()
+
+        toast({
+          title: "Success",
+          description: "Customer updated successfully",
+        })
+      } else {
+        // Create new customer
+        console.log("🚀 Creating customer with data:", { ...customerData, password: "***" })
+        const result = await createCustomer(customerData).unwrap()
+        console.log("✅ Customer created successfully:", result)
+        
+        toast({
+          title: "Success",
+          description: `Customer created successfully with ID: ${result.customerId}`,
+        })
+      }
+
+      // Close modal and reset form
+      setIsOpen(false)
+      setEditingId(null)
+      setFormData({
+        avatar: "",
+        image: "",
+        firstName: "",
+        lastName: "",
+        age: "",
+        mobileNumber: "",
+        emailAddress: "",
+        password: "",
+        houseNo: "",
+        roadName: "",
+        nearbyLandmark: "",
+        state: "",
+        city: "",
+        pincode: "",
+        addressType: "",
+        name: "",
+        email: "",
+        phone: "",
         totalOrders: 0,
         status: "active",
-        joinDate: new Date().toISOString().split("T")[0],
-      }
-      setCustomers([...customers, newCustomer])
+      })
+      
+      // Refetch customers list
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error saving customer:", error)
+      toast({
+        title: "Error",
+        description: error?.data?.error || error?.data?.data || error?.message || "Failed to save customer. Please try again.",
+        variant: "destructive",
+      })
     }
-    setIsOpen(false)
   }
 
   const handleDeleteClick = (id: string) => {
@@ -178,8 +274,10 @@ export default function CustomersPage() {
 
   const handleDeleteConfirm = () => {
     if (deleteId) {
-      setCustomers(customers.filter((c) => c.id !== deleteId))
+      // TODO: Implement delete customer API call
+      // For now, just refetch
       setDeleteId(null)
+      refetch()
     }
   }
 
@@ -262,91 +360,113 @@ export default function CustomersPage() {
 
       <Card>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm table-fixed">
-              <thead className="border-b border-border">
-                <tr>
-                  <th className="text-left py-3 px-4 font-semibold w-[220px]">Name</th>
-                  <th className="text-left py-3 px-4 font-semibold w-[200px]">Email</th>
-                  <th className="text-left py-3 px-4 font-semibold w-[140px]">Phone</th>
-                  <th className="text-left py-3 px-4 font-semibold w-[120px]">City</th>
-                  {/* <th className="text-left py-3 px-4 font-semibold w-[100px]">Orders</th> */}
-                  <th className="text-left py-3 px-4 font-semibold w-[120px]">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold w-[180px]">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((customer) => {
-                  // Get full name from firstName and lastName, or fallback to name
-                  const fullName = customer.firstName && customer.lastName
-                    ? `${customer.firstName} ${customer.lastName}`
-                    : customer.name
-                  
-                  // Get first letter for avatar fallback
-                  const getInitials = () => {
-                    if (customer.firstName && customer.lastName) {
-                      return `${customer.firstName.charAt(0)}${customer.lastName.charAt(0)}`.toUpperCase()
-                    }
-                    return customer.name.charAt(0).toUpperCase()
-                  }
-                  
-                  return (
-                  <tr key={customer.id} className="border-b border-border hover:bg-muted/50">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Avatar className="h-8 w-8 shrink-0">
-                          {customer.avatar && (
-                            <AvatarImage src={customer.avatar} alt={fullName} />
-                          )}
-                          <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                            {getInitials()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium truncate">{fullName}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 truncate">{customer.email}</td>
-                    <td className="py-3 px-4">{customer.phone}</td>
-                    <td className="py-3 px-4 truncate">{customer.city}</td>
-                    {/* <td className="py-3 px-4">{customer.totalOrders}</td> */}
-                    <td className="py-3 px-4">
-                      <StatusBadge status={customer.status} />
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit(customer)} className="cursor-pointer shrink-0">
-                          <Edit2 size={14} />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteClick(customer.id)}
-                          className="text-destructive cursor-pointer shrink-0"
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                        <Link href={`/customers/${customer.id}`}>
-                          <Button variant="outline" size="sm" className="cursor-pointer shrink-0">
-                            <Eye size={14}/>
-                          </Button>
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader size="md" />
+            </div>
+          ) : isError ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <p className="text-destructive font-medium">
+                {(error as any)?.data || (error as any)?.error || "Failed to load customers"}
+              </p>
+              <Button onClick={() => refetch()} variant="outline" className="cursor-pointer">
+                <Loader2 size={16} className="mr-2" />
+                Retry
+              </Button>
+            </div>
+          ) : customers.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-muted-foreground">No customers found</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm table-fixed">
+                  <thead className="border-b border-border">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-semibold w-[220px]">Name</th>
+                      <th className="text-left py-3 px-4 font-semibold w-[200px]">Email</th>
+                      <th className="text-left py-3 px-4 font-semibold w-[140px]">Phone</th>
+                      <th className="text-left py-3 px-4 font-semibold w-[120px]">City</th>
+                      {/* <th className="text-left py-3 px-4 font-semibold w-[100px]">Orders</th> */}
+                      <th className="text-left py-3 px-4 font-semibold w-[120px]">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold w-[180px]">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.map((customer) => {
+                      // Get full name from firstName and lastName, or fallback to name
+                      const fullName = customer.firstName && customer.lastName
+                        ? `${customer.firstName} ${customer.lastName}`
+                        : customer.name
+                      
+                      // Get first letter for avatar fallback
+                      const getInitials = () => {
+                        if (customer.firstName && customer.lastName) {
+                          return `${customer.firstName.charAt(0)}${customer.lastName.charAt(0)}`.toUpperCase()
+                        }
+                        return customer.name.charAt(0).toUpperCase()
+                      }
+                      
+                      return (
+                      <tr key={customer.id} className="border-b border-border hover:bg-muted/50">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Avatar className="h-8 w-8 shrink-0">
+                              {customer.avatar && (
+                                <AvatarImage src={customer.avatar} alt={fullName} />
+                              )}
+                              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                                {getInitials()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium truncate">{fullName}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 truncate">{customer.email}</td>
+                        <td className="py-3 px-4">{customer.phone}</td>
+                        <td className="py-3 px-4 truncate">{customer.city}</td>
+                        {/* <td className="py-3 px-4">{customer.totalOrders}</td> */}
+                        <td className="py-3 px-4">
+                          <StatusBadge status={customer.status} />
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(customer)} className="cursor-pointer shrink-0">
+                              <Edit2 size={14} />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteClick(customer.id)}
+                              className="text-destructive cursor-pointer shrink-0"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                            <Link href={`/customers/${customer.id}`}>
+                              <Button variant="outline" size="sm" className="cursor-pointer shrink-0">
+                                <Eye size={14}/>
+                              </Button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Pagination */}
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            totalItems={filtered.length}
-            onPageChange={setCurrentPage}
-          />
+              {/* Pagination */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={filtered.length}
+                onPageChange={setCurrentPage}
+              />
+            </>
+          )}
         </CardContent>
       </Card>
 
@@ -358,6 +478,8 @@ export default function CustomersPage() {
         onFormDataChange={handleFormDataChange}
         onSave={handleSave}
         saveLabel={editingId ? "Update" : "Create"}
+        isLoading={isCreating || isUpdating}
+        isEditing={!!editingId}
       />
 
       <ConfirmationModal

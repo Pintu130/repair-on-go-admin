@@ -53,15 +53,6 @@ export function Sidebar() {
     },
     { label: "Orders", href: "/orders", icon: ShoppingCart },
     {
-      label: "Staff Management",
-      icon: UsersRound,
-      children: [
-        { label: "Employees", href: "/employees", icon: UserCog },
-        { label: "Role Management", href: "/roles", icon: Shield },
-        { label: "Admin Users", href: "/admin-users", icon: ShieldCheck },
-      ],
-    },
-    {
       label: "Promotions",
       icon: Sparkles,
       children: [
@@ -72,6 +63,15 @@ export function Sidebar() {
     { label: "Payments", href: "/payments", icon: CreditCard },
     { label: "FAQ", href: "/faq", icon: HelpCircle },
     { label: "Contact", href: "/contact", icon: MessageCircle },
+    {
+      label: "Staff Management",
+      icon: UsersRound,
+      children: [
+        { label: "Employees", href: "/employees", icon: UserCog },
+        { label: "Role Management", href: "/roles", icon: Shield },
+        { label: "Admin Users", href: "/admin-users", icon: ShieldCheck },
+      ],
+    },
     {
       label: "Web Configurations",
       icon: Globe,

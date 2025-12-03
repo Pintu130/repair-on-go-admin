@@ -69,12 +69,30 @@ export function setUserData(userData: UserData): void {
  */
 export function getUserData(): UserData | null {
   const userDataStr = getCookie("user_data")
-  if (!userDataStr) return null
+  if (!userDataStr) {
+    console.log("🔍 Cookie 'user_data' not found")
+    return null
+  }
   
   try {
-    return JSON.parse(userDataStr)
+    const decryptedData = JSON.parse(userDataStr)
+    
+    // Log decrypted/parsed user data in readable format
+    console.log("📋 Decrypted User Data (Object):", {
+      uid: decryptedData.uid,
+      email: decryptedData.email,
+      role: decryptedData.role,
+      name: decryptedData.name || "N/A",
+      phone: decryptedData.phone || "N/A",
+      hasToken: !!decryptedData.token,
+      tokenLength: decryptedData.token ? decryptedData.token.length : 0,
+      allKeys: Object.keys(decryptedData)
+    })
+    
+    return decryptedData
   } catch (error) {
-    console.error("Error parsing user data from cookie:", error)
+    console.error("❌ Error parsing user data from cookie:", error)
+    console.error("Raw value that failed to parse:", userDataStr)
     return null
   }
 }
@@ -86,11 +104,49 @@ export function isAuthenticated(): boolean {
   const userData = getUserData()
   const authToken = getCookie("auth_token")
   const isAuth = !!(userData && authToken)
-  console.log("🔍 Cookie auth check:", {
-    hasUserData: !!userData,
-    hasAuthToken: !!authToken,
-    isAuthenticated: isAuth
-  })
   return isAuth
+}
+
+/**
+ * Log all user data from cookies in console (for debugging)
+ * This function shows both encrypted and decrypted data
+ */
+export function logUserDataFromCookies(): void {
+  console.group("🍪 User Data from Cookies (Debug Info)")
+  
+  // Get raw cookie values
+  const rawUserData = getCookie("user_data")
+  const rawAuthToken = getCookie("auth_token")
+  const rawUserRole = getCookie("user_role")
+  const rawUserUid = getCookie("user_uid")
+  
+  console.log("📦 Raw Cookie Values:")
+  console.log("  - user_data:", rawUserData ? `${rawUserData.substring(0, 50)}...` : "Not found")
+  console.log("  - auth_token:", rawAuthToken ? `${rawAuthToken.substring(0, 30)}...` : "Not found")
+  console.log("  - user_role:", rawUserRole || "Not found")
+  console.log("  - user_uid:", rawUserUid || "Not found")
+  
+  // Get decrypted user data
+  const decryptedData = getUserData()
+  
+  if (decryptedData) {
+    console.log("\n✅ Decrypted User Data:")
+    console.table({
+      UID: decryptedData.uid,
+      Email: decryptedData.email,
+      Role: decryptedData.role,
+      Name: decryptedData.name || "N/A",
+      Phone: decryptedData.phone || "N/A",
+      "Has Token": decryptedData.token ? "Yes" : "No",
+      "Token Length": decryptedData.token?.length || 0,
+    })
+    
+    console.log("\n📋 Complete User Data Object:")
+    console.log(JSON.stringify(decryptedData, null, 2))
+  } else {
+    console.log("❌ No user data found in cookies")
+  }
+  
+  console.groupEnd()
 }
 
