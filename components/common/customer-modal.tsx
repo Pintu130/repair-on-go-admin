@@ -62,7 +62,7 @@ export function CustomerModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[60vw] max-w-5xl h-[90vh] max-h-[70vh] overflow-hidden flex flex-col">
+      <DialogContent className="w-[60vw] max-w-5xl h-[90vh] max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
