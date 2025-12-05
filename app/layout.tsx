@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/lib/auth-context"
 import { ReduxProvider } from "@/lib/store/ReduxProvider"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ export default function RootLayout({
         <ReduxProvider>
           <AuthProvider>{children}</AuthProvider>
         </ReduxProvider>
+        <Toaster />
         <Analytics />
       </body>
     </html>

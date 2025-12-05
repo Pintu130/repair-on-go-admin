@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -45,8 +45,26 @@ export function CustomerModal({
     onOpenChange(isOpen)
   }
 
+  // Reset to first tab whenever modal opens
+  useEffect(() => {
+    if (open) {
+      setActiveTab(0)
+    }
+  }, [open])
+
+  // Validation for required fields on first tab
+  const isFirstTabValid = () => {
+    const hasFirstName = formData.firstName?.trim()
+    const hasLastName = formData.lastName?.trim()
+    const hasMobileNumber = formData.mobileNumber?.trim()
+    const hasEmailAddress = formData.emailAddress?.trim()
+    const hasPassword = isEditing || formData.password?.trim()
+
+    return hasFirstName && hasLastName && hasMobileNumber && hasEmailAddress && hasPassword
+  }
+
   const handleNext = () => {
-    if (activeTab < 1) {
+    if (activeTab < 1 && isFirstTabValid()) {
       setActiveTab(activeTab + 1)
     }
   }
@@ -72,13 +90,9 @@ export function CustomerModal({
           onValueChange={(value) => setActiveTab(Number(value))}
           className="flex-1 flex flex-col overflow-hidden"
         >
-          <TabsList className="shrink-0 w-full justify-start mb-4">
-            <TabsTrigger value="0" className="cursor-pointer">Personal Information</TabsTrigger>
-            <TabsTrigger value="1" className="cursor-pointer">Address Information</TabsTrigger>
-          </TabsList>
 
           <div className="flex-1 overflow-y-auto pr-2 px-2.5">
-            <TabsContent value="0" className="mt-0">
+            <TabsContent value="0" className="mt-5">
               {/* Avatar Upload Section */}
               <div className="flex flex-col items-center gap-3 mb-6 pb-6 border-b border-border">
                 <div className="relative">
@@ -108,7 +122,7 @@ export function CustomerModal({
                             })
                             return
                           }
-                          
+
                           // Check file size (max 5MB)
                           if (file.size > 5 * 1024 * 1024) {
                             toast({
@@ -118,7 +132,7 @@ export function CustomerModal({
                             })
                             return
                           }
-                          
+
                           const reader = new FileReader()
                           reader.onloadend = () => {
                             const imageData = reader.result as string
@@ -233,7 +247,7 @@ export function CustomerModal({
               </div>
             </TabsContent>
 
-            <TabsContent value="1" className="mt-0">
+            <TabsContent value="1" className="mt-5">
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   field={{
@@ -344,7 +358,7 @@ export function CustomerModal({
                 </Button>
               )}
               {!isLastTab ? (
-                <Button onClick={handleNext} disabled={isLoading} className="cursor-pointer">
+                <Button onClick={handleNext} disabled={isLoading || !isFirstTabValid()} className="cursor-pointer">
                   Next
                   <ChevronRight size={16} className="ml-1" />
                 </Button>

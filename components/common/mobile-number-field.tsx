@@ -32,19 +32,21 @@ export function MobileNumberField({
 }: MobileNumberFieldProps) {
   const [touched, setTouched] = useState(false)
 
-  // Format mobile number: Add space after 5 digits (e.g., 98765 43210)
+  // Format mobile number: Add space after 5 digits
+  // Accept 11 digits if starts with 0, otherwise 10 digits
   const formatMobileNumber = (input: string) => {
     // Remove all non-digit characters
     const digits = input.replace(/\D/g, "")
-    
-    // Limit to 10 digits
-    const limitedDigits = digits.slice(0, 10)
-    
+
+    // Determine max length based on first digit
+    const maxLength = digits.startsWith('0') ? 11 : 10
+    const limitedDigits = digits.slice(0, maxLength)
+
     // Add space after 5 digits
     if (limitedDigits.length > 5) {
       return `${limitedDigits.slice(0, 5)} ${limitedDigits.slice(5)}`
     }
-    
+
     return limitedDigits
   }
 
@@ -57,10 +59,12 @@ export function MobileNumberField({
     setTouched(true)
   }
 
-  // Validate Indian mobile number
-  // Indian mobile numbers: Start with 6, 7, 8, or 9 and have exactly 10 digits
+  // Validate mobile number
+  // Accept 11 digits if starts with 0, otherwise 10 digits (starting with 6-9)
   const digits = value.replace(/\D/g, "")
-  const isValid = digits.length === 10 && /^[6-9]\d{9}$/.test(digits)
+  const isValid = digits.startsWith('0')
+    ? digits.length === 11 && /^0\d{10}$/.test(digits)
+    : digits.length === 10 && /^[6-9]\d{9}$/.test(digits)
   const showError = touched && value && !isValid
 
   const colSpanClass = colSpan === 2 ? "col-span-2" : ""
@@ -80,14 +84,14 @@ export function MobileNumberField({
         placeholder={placeholder}
         required={required}
         disabled={disabled}
-        maxLength={11} // 10 digits + 1 space
+        maxLength={12} // 11 digits + 1 space (for numbers starting with 0)
         className={cn(
           showError || error ? "border-destructive focus:ring-destructive" : ""
         )}
       />
       {(showError || error) && (
         <p className="text-xs text-destructive">
-          {error || "Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9)"}
+          {error || "Please enter a valid mobile number (10 digits starting with 6-9, or 11 digits starting with 0)"}
         </p>
       )}
     </div>

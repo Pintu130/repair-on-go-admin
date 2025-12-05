@@ -4,8 +4,8 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Edit2, Trash2, Plus, X, Eye, Loader2 } from "lucide-react"
-import { Customer } from "@/data/customers"
+import { Edit2, Trash2, Plus, X, Eye, Loader2, Phone, Mail } from "lucide-react"
+import { Customer, formatMobileNumber } from "@/data/customers"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { SearchInput } from "@/components/common/search-input"
 import { SelectFilter } from "@/components/common/select-filter"
@@ -22,13 +22,13 @@ export default function CustomersPage() {
   const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
-  
+
   // Fetch customers from Firebase
   const { data, isLoading, isError, error, refetch } = useGetCustomersQuery()
   const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
   const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
   const { toast } = useToast()
-  
+
   // Extract customers from API response or use empty array
   const customers = data?.customers || []
   const [isOpen, setIsOpen] = useState(false)
@@ -56,7 +56,6 @@ export default function CustomersPage() {
     // Legacy fields for compatibility
     name: "",
     email: "",
-    phone: "",
     totalOrders: 0,
     status: "active" as "active" | "inactive",
   })
@@ -78,17 +77,17 @@ export default function CustomersPage() {
         !searchTerm ||
         customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         customer.email.toLowerCase().includes(searchTerm.toLowerCase())
-      
+
       // Status filter
       const matchesStatus = statusFilter === "all" || customer.status === statusFilter
-      
+
       return matchesSearch && matchesStatus
     })
   }, [searchTerm, statusFilter, customers])
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
+  // console.log("🔵 paginatedData", paginatedData)
   const handleAdd = () => {
     setEditingId(null)
     setFormData({
@@ -109,7 +108,6 @@ export default function CustomersPage() {
       addressType: "",
       name: "",
       email: "",
-      phone: "",
       totalOrders: 0,
       status: "active",
     })
@@ -124,7 +122,7 @@ export default function CustomersPage() {
       firstName: customer.firstName || customer.name.split(" ")[0] || "",
       lastName: customer.lastName || customer.name.split(" ").slice(1).join(" ") || "",
       age: customer.age || "",
-      mobileNumber: customer.mobileNumber || customer.phone || "",
+      mobileNumber: customer.mobileNumber || "",
       emailAddress: customer.email || "",
       password: "", // Password not required for edit (email disabled in edit mode)
       houseNo: customer.houseNo || "",
@@ -136,7 +134,6 @@ export default function CustomersPage() {
       addressType: customer.addressType || "",
       name: customer.name,
       email: customer.email,
-      phone: customer.phone,
       totalOrders: customer.totalOrders,
       status: customer.status,
     })
@@ -148,8 +145,6 @@ export default function CustomersPage() {
   }
 
   const handleSave = async () => {
-    console.log("🔵 handleSave called", { editingId, formData: { ...formData, password: formData.password ? "***" : "" } })
-    
     // Validation for required fields
     if (!formData.firstName || !formData.lastName || !formData.emailAddress || !formData.mobileNumber) {
       toast({
@@ -187,7 +182,6 @@ export default function CustomersPage() {
         emailAddress: formData.emailAddress,
         email: formData.emailAddress, // For compatibility
         mobileNumber: formData.mobileNumber,
-        phone: formData.mobileNumber, // For compatibility
         age: formData.age || null,
         city: formData.city || null,
         state: formData.state || null,
@@ -219,10 +213,8 @@ export default function CustomersPage() {
         })
       } else {
         // Create new customer
-        console.log("🚀 Creating customer with data:", { ...customerData, password: "***" })
         const result = await createCustomer(customerData).unwrap()
-        console.log("✅ Customer created successfully:", result)
-        
+
         toast({
           title: "Success",
           description: `Customer created successfully with ID: ${result.customerId}`,
@@ -250,18 +242,17 @@ export default function CustomersPage() {
         addressType: "",
         name: "",
         email: "",
-        phone: "",
         totalOrders: 0,
         status: "active",
       })
-      
+
       // Refetch customers list
       refetch()
     } catch (error: any) {
       console.error("❌ Error saving customer:", error)
       toast({
         title: "Error",
-        description: error?.data?.error || error?.data?.data || error?.message || "Failed to save customer. Please try again.",
+        description: error?.error || error?.data || "Failed to save customer. Please try again.",
         variant: "destructive",
       })
     }
@@ -399,7 +390,7 @@ export default function CustomersPage() {
                       const fullName = customer.firstName && customer.lastName
                         ? `${customer.firstName} ${customer.lastName}`
                         : customer.name
-                      
+
                       // Get first letter for avatar fallback
                       const getInitials = () => {
                         if (customer.firstName && customer.lastName) {
@@ -407,50 +398,66 @@ export default function CustomersPage() {
                         }
                         return customer.name.charAt(0).toUpperCase()
                       }
-                      
+
                       return (
-                      <tr key={customer.id} className="border-b border-border hover:bg-muted/50">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Avatar className="h-8 w-8 shrink-0">
-                              {customer.avatar && (
-                                <AvatarImage src={customer.avatar} alt={fullName} />
-                              )}
-                              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                                {getInitials()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-medium truncate">{fullName}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 truncate">{customer.email}</td>
-                        <td className="py-3 px-4">{customer.phone}</td>
-                        <td className="py-3 px-4 truncate">{customer.city}</td>
-                        {/* <td className="py-3 px-4">{customer.totalOrders}</td> */}
-                        <td className="py-3 px-4">
-                          <StatusBadge status={customer.status} />
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => handleEdit(customer)} className="cursor-pointer shrink-0">
-                              <Edit2 size={14} />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteClick(customer.id)}
-                              className="text-destructive cursor-pointer shrink-0"
-                            >
-                              <Trash2 size={14} />
-                            </Button>
-                            <Link href={`/customers/${customer.id}`}>
-                              <Button variant="outline" size="sm" className="cursor-pointer shrink-0">
-                                <Eye size={14}/>
+                        <tr key={customer.id} className="border-b border-border hover:bg-muted/50">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Avatar className="h-8 w-8 shrink-0">
+                                {customer.avatar && (
+                                  <AvatarImage src={customer.avatar} alt={fullName} />
+                                )}
+                                <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                                  {getInitials()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="font-medium truncate capitalize">{fullName}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              <Mail size={14} className="text-muted-foreground shrink-0" />
+                              <span className="truncate">{customer.email}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            {customer.mobileNumber ? (
+                              <div className="flex items-center gap-2">
+                                <Phone size={14} className="text-muted-foreground shrink-0" />
+                                <span>{formatMobileNumber(customer.mobileNumber)}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center">
+                                <span className="text-muted-foreground font-medium">-</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 truncate">{customer.city}</td>
+                          {/* <td className="py-3 px-4">{customer.totalOrders}</td> */}
+                          <td className="py-3 px-4">
+                            <StatusBadge status={customer.status} />
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" onClick={() => handleEdit(customer)} className="cursor-pointer shrink-0">
+                                <Edit2 size={14} />
                               </Button>
-                            </Link>
-                          </div>
-                        </td>
-                      </tr>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteClick(customer.id)}
+                                className="text-destructive cursor-pointer shrink-0"
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                              <Link href={`/customers/${customer.id}`}>
+                                <Button variant="outline" size="sm" className="cursor-pointer shrink-0">
+                                  <Eye size={14} />
+                                </Button>
+                              </Link>
+                            </div>
+                          </td>
+                        </tr>
                       )
                     })}
                   </tbody>

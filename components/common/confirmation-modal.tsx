@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Loader2 } from "lucide-react"
 
 interface ConfirmationModalProps {
   open: boolean
@@ -20,6 +21,7 @@ interface ConfirmationModalProps {
   confirmText?: string
   cancelText?: string
   variant?: "default" | "destructive"
+  isLoading?: boolean
 }
 
 export function ConfirmationModal({
@@ -31,6 +33,7 @@ export function ConfirmationModal({
   confirmText = "Confirm",
   cancelText = "Cancel",
   variant = "destructive",
+  isLoading = false,
 }: ConfirmationModalProps) {
   const handleConfirm = () => {
     onConfirm()
@@ -45,15 +48,17 @@ export function ConfirmationModal({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="cursor-pointer">{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel className="cursor-pointer" disabled={isLoading}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
+            disabled={isLoading}
             className={
               variant === "destructive"
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
-                : ""
+                : "cursor-pointer"
             }
           >
+            {isLoading && <Loader2 size={16} className="mr-2 animate-spin" />}
             {confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>

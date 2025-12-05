@@ -323,3 +323,37 @@ export const mockCustomers: Customer[] = [
     joinDate: "2024-02-16",
   },
 ];
+
+ // Format mobile number to Indian format: +91 XXXXX XXXXX
+  export const formatMobileNumber = (number: string | undefined) => {
+    if (!number) return ""
+    // Remove all non-digit characters
+    const digits = number.replace(/\D/g, "")
+
+    // Handle different formats
+    let formattedDigits = digits
+
+    // If starts with 91 and has 12 digits, remove the country code
+    if (digits.startsWith("91") && digits.length === 12) {
+      formattedDigits = digits.slice(2)
+    }
+    // If starts with 0 and has 11 digits, remove the leading 0
+    else if (digits.startsWith("0") && digits.length === 11) {
+      formattedDigits = digits.slice(1)
+    }
+    // If has exactly 10 digits, use as is
+    else if (digits.length === 10) {
+      formattedDigits = digits
+    }
+    // Otherwise, just use the last 10 digits
+    else if (digits.length > 10) {
+      formattedDigits = digits.slice(-10)
+    }
+
+    // Format as: +91 XXXXX XXXXX
+    if (formattedDigits.length === 10) {
+      return `+91 ${formattedDigits.slice(0, 5)} ${formattedDigits.slice(5)}`
+    }
+
+    return number // Return original if can't format
+  }

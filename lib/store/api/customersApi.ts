@@ -18,19 +18,19 @@ export interface CustomerResponse {
 // Helper function to convert Firestore timestamp to date string
 const convertTimestamp = (timestamp: any): string => {
   if (!timestamp) return new Date().toISOString().split("T")[0]
-  
+
   if (timestamp instanceof Timestamp) {
     return timestamp.toDate().toISOString().split("T")[0]
   }
-  
+
   if (timestamp?.seconds) {
     return new Date(timestamp.seconds * 1000).toISOString().split("T")[0]
   }
-  
+
   if (typeof timestamp === "string") {
     return timestamp
   }
-  
+
   return new Date().toISOString().split("T")[0]
 }
 
@@ -39,10 +39,10 @@ const convertFirestoreDocToCustomer = (docData: any, docId: string): Customer =>
   // Get firstName and lastName directly from Firebase
   const firstName = docData.firstName || ""
   const lastName = docData.lastName || ""
-  
+
   // Build full name from firstName and lastName
   const fullName = `${firstName} ${lastName}`.trim() || docData.name || "Unknown"
-  
+
   // Get phone number - Firebase uses mobileNumber
   const phoneNumber = docData.mobileNumber || docData.phone || docData.mobile || ""
 
@@ -89,12 +89,12 @@ export const customersApi = createApi({
       queryFn: async () => {
         try {
           console.log("🔥 Fetching customers from Firestore...")
-          
+
           const customersRef = collection(db, "customers")
           const querySnapshot = await getDocs(customersRef)
-          
+
           console.log(`✅ Found ${querySnapshot.size} customers in Firestore`)
-          
+
           const customers: Customer[] = querySnapshot.docs.map((docSnapshot) => {
             const docData = docSnapshot.data()
             console.log(`📄 Processing customer document ${docSnapshot.id}:`, {
@@ -106,7 +106,7 @@ export const customersApi = createApi({
             })
             return convertFirestoreDocToCustomer(docData, docSnapshot.id)
           })
-          
+
           console.log(`✅ Converted ${customers.length} customers:`, customers.map(c => ({
             id: c.id,
             name: c.name,
@@ -145,10 +145,10 @@ export const customersApi = createApi({
       queryFn: async (customerId: string) => {
         try {
           console.log(`🔥 Fetching customer ${customerId} from Firestore...`)
-          
+
           const customerDocRef = doc(db, "customers", customerId)
           const customerDoc = await getDoc(customerDocRef)
-          
+
           if (!customerDoc.exists()) {
             return {
               error: {
@@ -184,11 +184,11 @@ export const customersApi = createApi({
       queryFn: async (customerData) => {
         try {
           console.log("🔥 Creating new customer with Firebase Authentication...", customerData)
-          
+
           // Get email and password for Firebase Auth
           const email = customerData.emailAddress || customerData.email || ""
           const password = customerData.password || ""
-          
+
           // Validate email and password
           if (!email || !password) {
             return {
@@ -199,12 +199,12 @@ export const customersApi = createApi({
               },
             }
           }
-          
+
           // Step 1: Create Firebase Authentication user
           console.log("🔐 Creating Firebase Auth user...")
           let firebaseUser
           let uid: string
-          
+
           try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, password)
             firebaseUser = userCredential.user
@@ -212,7 +212,7 @@ export const customersApi = createApi({
             console.log(`✅ Firebase Auth user created successfully with UID: ${uid}`)
           } catch (authError: any) {
             console.error("❌ Error creating Firebase Auth user:", authError)
-            
+
             // Handle specific Firebase Auth errors
             let errorMessage = "Failed to create customer authentication"
             if (authError.code === "auth/email-already-in-use") {
@@ -224,7 +224,7 @@ export const customersApi = createApi({
             } else if (authError.message) {
               errorMessage = authError.message
             }
-            
+
             return {
               error: {
                 status: "CUSTOM_ERROR",
@@ -233,16 +233,16 @@ export const customersApi = createApi({
               },
             }
           }
-          
+
           // Step 2: Generate unique document ID for Firestore
           const customersRef = collection(db, "customers")
           const newCustomerRef = doc(customersRef)
           const customerId = newCustomerRef.id
-          
+
           // Step 3: Store image as base64 directly in Firestore (no Storage upload)
           let imageUrl: string | null = null
           imageUrl = customerData.image || customerData.avatar || null
-          
+
           // Step 4: Prepare customer data for Firestore
           const firestoreData: any = {
             id: customerId,
@@ -265,28 +265,28 @@ export const customersApi = createApi({
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           }
-          
+
           // Remove null/undefined/empty fields
           Object.keys(firestoreData).forEach((key) => {
             if (firestoreData[key] === null || firestoreData[key] === undefined || firestoreData[key] === "") {
               delete firestoreData[key]
             }
           })
-          
+
           console.log("📝 Saving customer data to Firestore:", firestoreData)
-          
+
           // Step 5: Save to Firestore
           try {
             await setDoc(newCustomerRef, firestoreData)
             console.log(`✅ Customer created successfully with ID: ${customerId} and UID: ${uid}`)
           } catch (firestoreError: any) {
             console.error("❌ Error saving customer to Firestore:", firestoreError)
-            
+
             // If Firestore save fails, we should clean up the Firebase Auth user
             // However, deleting a user requires admin privileges on client-side
             // Log a warning for manual cleanup if needed
             console.warn(`⚠️ Firebase Auth user created (UID: ${uid}) but Firestore save failed. Manual cleanup may be required.`)
-            
+
             return {
               error: {
                 status: "CUSTOM_ERROR",
@@ -295,7 +295,7 @@ export const customersApi = createApi({
               },
             }
           }
-          
+
           return {
             data: {
               success: true,
@@ -319,11 +319,11 @@ export const customersApi = createApi({
       queryFn: async ({ customerId, customerData }) => {
         try {
           console.log(`🔥 Updating customer ${customerId} in Firestore...`, customerData)
-          
+
           // Get existing customer document
           const customerDocRef = doc(db, "customers", customerId)
           const customerDoc = await getDoc(customerDocRef)
-          
+
           if (!customerDoc.exists()) {
             return {
               error: {
@@ -333,11 +333,11 @@ export const customersApi = createApi({
               },
             }
           }
-          
+
           const existingData = customerDoc.data()
           const existingImageUrl = existingData.image || existingData.avatar || null
           const newImageData = customerData.image || customerData.avatar
-          
+
           // Image upload logic commented out - storing base64 directly in Firestore
           // Handle image update
           // let imageUrl: string | null = existingImageUrl
@@ -374,14 +374,14 @@ export const customersApi = createApi({
           //     }
           //   }
           // }
-          
+
           // Store image as base64 directly in Firestore (no Storage upload)
           let imageUrl: string | null = existingImageUrl
           if (newImageData) {
             // Update image if new one provided
             imageUrl = newImageData
           }
-          
+
           // Prepare update data (don't update email)
           const updateData: any = {
             firstName: customerData.firstName || "",
@@ -399,26 +399,26 @@ export const customersApi = createApi({
             status: customerData.status || "active",
             updatedAt: serverTimestamp(),
           }
-          
+
           // Only update image if it changed
           if (imageUrl !== existingImageUrl) {
             updateData.image = imageUrl
           }
-          
+
           // Remove null/undefined/empty fields
           Object.keys(updateData).forEach((key) => {
             if (updateData[key] === null || updateData[key] === undefined || updateData[key] === "") {
               delete updateData[key]
             }
           })
-          
+
           console.log("📝 Updating customer data:", updateData)
-          
+
           // Update in Firestore
           await updateDoc(customerDocRef, updateData)
-          
+
           console.log(`✅ Customer updated successfully: ${customerId}`)
-          
+
           return {
             data: {
               success: true,
@@ -443,8 +443,8 @@ export const customersApi = createApi({
   }),
 })
 
-export const { 
-  useGetCustomersQuery, 
+export const {
+  useGetCustomersQuery,
   useGetCustomerByIdQuery,
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
