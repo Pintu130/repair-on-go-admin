@@ -18,7 +18,7 @@ const mockBookingHistory = [
 
 export default function CustomerDetailPage() {
   const params = useParams()
-  const customer = mockCustomers.find((c) => c.id === params.id)
+  const customer = mockCustomers.find((c) => c.id === "9")
 
   if (!customer) {
     return (

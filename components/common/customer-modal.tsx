@@ -97,7 +97,7 @@ export function CustomerModal({
               <div className="flex flex-col items-center gap-3 mb-6 pb-6 border-b border-border">
                 <div className="relative">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src={formData.image || formData.avatar || ""} alt="Customer Avatar" />
+                    <AvatarImage src={formData.avatar || ""} alt="Customer Avatar" />
                     <AvatarFallback className="bg-muted text-muted-foreground">
                       <User size={32} />
                     </AvatarFallback>
@@ -292,11 +292,6 @@ export function CustomerModal({
                       { value: "gujarat", label: "Gujarat" },
                       { value: "maharashtra", label: "Maharashtra" },
                       { value: "rajasthan", label: "Rajasthan" },
-                      { value: "delhi", label: "Delhi" },
-                      { value: "karnataka", label: "Karnataka" },
-                      { value: "tamil-nadu", label: "Tamil Nadu" },
-                      { value: "west-bengal", label: "West Bengal" },
-                      { value: "uttar-pradesh", label: "Uttar Pradesh" },
                     ],
                   }}
                   value={formData.state}

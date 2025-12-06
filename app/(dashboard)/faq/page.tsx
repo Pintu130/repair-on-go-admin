@@ -3,58 +3,147 @@
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Plus, Edit2, Trash2, ChevronDown } from "lucide-react"
-
-interface FAQItem {
-  id: string
-  question: string
-  answer: string
-}
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Plus, Edit2, Trash2, ChevronDown, Loader2 } from "lucide-react"
+import { useGetFAQsQuery, useCreateFAQMutation, useUpdateFAQMutation, useDeleteFAQMutation, type FAQ } from "@/lib/store/api/faqsApi"
+import { useToast } from "@/hooks/use-toast"
+import { ConfirmationModal } from "@/components/common/confirmation-modal"
 
 export default function FAQPage() {
-  const [faqs, setFaqs] = useState<FAQItem[]>([
-    {
-      id: "1",
-      question: "How do I book a repair service?",
-      answer: "You can book through our website or mobile app by selecting your service category and preferred date.",
-    },
-    {
-      id: "2",
-      question: "What payment methods do you accept?",
-      answer: "We accept credit cards, debit cards, UPI, and digital wallets.",
-    },
-    {
-      id: "3",
-      question: "Can I reschedule my appointment?",
-      answer: "Yes, you can reschedule up to 24 hours before your appointment.",
-    },
-  ])
+  // Fetch FAQs from Firebase
+  const { data, isLoading, isError, error, refetch } = useGetFAQsQuery()
+  const [createFAQ, { isLoading: isCreating }] = useCreateFAQMutation()
+  const [updateFAQ, { isLoading: isUpdating }] = useUpdateFAQMutation()
+  const [deleteFAQ, { isLoading: isDeleting }] = useDeleteFAQMutation()
+  const { toast } = useToast()
+
+  // Extract FAQs from API response or use empty array
+  const faqs = data?.faqs || []
+
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({ question: "", answer: "" })
 
-  const handleAdd = () => {
-    if (formData.question && formData.answer) {
-      setFaqs([...faqs, { id: Date.now().toString(), ...formData }])
+  const handleAdd = async () => {
+    if (!formData.question.trim() || !formData.answer.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill both question and answer fields.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await createFAQ(formData).unwrap()
+
+      toast({
+        title: "FAQ Created Successfully! 🎉",
+        description: "FAQ has been added successfully.",
+      })
+
       setFormData({ question: "", answer: "" })
       setIsAdding(false)
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error creating FAQ:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to create FAQ. Please try again."
+
+      toast({
+        title: "Failed to Create FAQ",
+        description: errorMessage,
+        variant: "destructive",
+      })
     }
   }
 
-  const handleEdit = (faq: FAQItem) => {
+  const handleEdit = (faq: FAQ) => {
     setEditingId(faq.id)
     setFormData({ question: faq.question, answer: faq.answer })
+    setIsAdding(false)
   }
 
-  const handleSaveEdit = () => {
-    setFaqs(faqs.map((f) => (f.id === editingId ? { ...f, ...formData } : f)))
-    setEditingId(null)
-    setFormData({ question: "", answer: "" })
+  const handleSaveEdit = async () => {
+    if (!editingId || !formData.question.trim() || !formData.answer.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill both question and answer fields.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await updateFAQ({
+        faqId: editingId,
+        faqData: formData,
+      }).unwrap()
+
+      toast({
+        title: "FAQ Updated Successfully! ✅",
+        description: "FAQ has been updated successfully.",
+      })
+
+      setEditingId(null)
+      setFormData({ question: "", answer: "" })
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error updating FAQ:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to update FAQ. Please try again."
+
+      toast({
+        title: "Failed to Update FAQ",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleDelete = (id: string) => {
-    setFaqs(faqs.filter((f) => f.id !== id))
+  const handleDeleteClick = (id: string) => {
+    setDeletingId(id)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return
+
+    try {
+      await deleteFAQ(deletingId).unwrap()
+
+      toast({
+        title: "FAQ Deleted Successfully! ✅",
+        description: "FAQ has been deleted successfully.",
+      })
+
+      setDeletingId(null)
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error deleting FAQ:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to delete FAQ. Please try again."
+
+      toast({
+        title: "Failed to Delete FAQ",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -75,22 +164,40 @@ export default function FAQPage() {
             <CardTitle>{editingId ? "Edit FAQ" : "Add New FAQ"}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <input
-              type="text"
-              placeholder="Question"
-              value={formData.question}
-              onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-              className="w-full px-4 py-2 rounded-lg border border-border bg-background"
-            />
-            <textarea
-              placeholder="Answer"
-              value={formData.answer}
-              onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
-              className="w-full px-4 py-2 rounded-lg border border-border bg-background"
-              rows={4}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="question">
+                Question <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="question"
+                type="text"
+                placeholder="Enter question"
+                value={formData.question}
+                onChange={(e) => setFormData({ ...formData, question: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="answer">
+                Answer <span className="text-destructive">*</span>
+              </Label>
+              <textarea
+                id="answer"
+                placeholder="Enter answer"
+                value={formData.answer}
+                onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                rows={4}
+              />
+            </div>
             <div className="flex gap-3">
-              <Button onClick={editingId ? handleSaveEdit : handleAdd} className="cursor-pointer">{editingId ? "Save" : "Add"}</Button>
+              <Button
+                onClick={editingId ? handleSaveEdit : handleAdd}
+                className="cursor-pointer"
+                disabled={isCreating || isUpdating}
+              >
+                {(isCreating || isUpdating) && <Loader2 size={16} className="mr-2 animate-spin" />}
+                {editingId ? "Save" : "Add"}
+              </Button>
               <Button
                 variant="outline"
                 className="cursor-pointer"
@@ -99,6 +206,7 @@ export default function FAQPage() {
                   setEditingId(null)
                   setFormData({ question: "", answer: "" })
                 }}
+                disabled={isCreating || isUpdating}
               >
                 Cancel
               </Button>
@@ -107,39 +215,90 @@ export default function FAQPage() {
         </Card>
       )}
 
-      <div className="space-y-4">
-        {faqs.map((faq) => (
-          <Card key={faq.id}>
-            <CardHeader className="cursor-pointer" onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{faq.question}</CardTitle>
-                <ChevronDown
-                  size={20}
-                  className={`transition-transform ${expandedId === faq.id ? "rotate-180" : ""}`}
-                />
-              </div>
-            </CardHeader>
-            {expandedId === faq.id && (
-              <CardContent className="space-y-2">
-                <p className="text-muted-foreground">{faq.answer}</p>
-                <div className="flex gap-2 justify-start">
-                  <Button variant="outline" size="sm" onClick={() => handleEdit(faq)} className="cursor-pointer shrink-0">
-                    <Edit2 size={14} />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(faq.id)}
-                    className="text-destructive cursor-pointer shrink-0"
-                  >
-                    <Trash2 size={14} />
-                  </Button>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <p className="text-destructive">Error loading FAQs. Please try again.</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {faqs.length === 0 ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center text-muted-foreground">
+                  <p>No FAQs found. Click "Add FAQ" to create your first FAQ.</p>
                 </div>
               </CardContent>
-            )}
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ) : (
+            faqs.map((faq) => (
+              <Card key={faq.id}>
+                <CardHeader
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{faq.question}</CardTitle>
+                    <ChevronDown
+                      size={20}
+                      className={`transition-transform ${expandedId === faq.id ? "rotate-180" : ""}`}
+                    />
+                  </div>
+                </CardHeader>
+                {expandedId === faq.id && (
+                  <CardContent className="space-y-4">
+                    <p className="text-muted-foreground whitespace-pre-wrap">{faq.answer}</p>
+                    <div className="flex gap-2 justify-start pt-2 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(faq)}
+                        className="cursor-pointer shrink-0"
+                      >
+                        <Edit2 size={14} className="mr-2" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteClick(faq.id)}
+                        className="text-destructive cursor-pointer shrink-0"
+                      >
+                        <Trash2 size={14} className="mr-2" />
+                        Delete
+                      </Button>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        open={!!deletingId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingId(null)
+          }
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Delete FAQ?"
+        description="Are you sure you want to delete this FAQ? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={isDeleting}
+      />
     </div>
   )
 }

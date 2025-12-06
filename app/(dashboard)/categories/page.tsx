@@ -4,13 +4,23 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Edit2, Trash2, Plus, Package } from "lucide-react"
-import { mockCategories } from "@/data/categories"
+import { Edit2, Trash2, Plus, Package, Loader2 } from "lucide-react"
 import { CategoryModal } from "@/components/common/category-modal"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
+import { useGetCategoriesQuery, useCreateCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation, type Category } from "@/lib/store/api/categoriesApi"
+import { useToast } from "@/hooks/use-toast"
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState(mockCategories)
+  // Fetch categories from Firebase
+  const { data, isLoading, isError, error, refetch } = useGetCategoriesQuery()
+  const [createCategory, { isLoading: isCreating }] = useCreateCategoryMutation()
+  const [updateCategory, { isLoading: isUpdating }] = useUpdateCategoryMutation()
+  const [deleteCategory, { isLoading: isDeleting }] = useDeleteCategoryMutation()
+  const { toast } = useToast()
+
+  // Extract categories from API response or use empty array
+  const categories = data?.categories || []
+
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -23,22 +33,48 @@ export default function CategoriesPage() {
     seoDescription: "",
     seoKeywords: "",
   })
+  // Store base64 image data separately for API
+  const [iconData, setIconData] = useState<string>("")
+  const [seoImageData, setSeoImageData] = useState<string>("")
 
-  const handleAddCategory = () => {
-    if (formData.name) {
-      const newCategory = {
-        id: Date.now().toString(),
-        name: formData.name,
-        description: formData.description,
-        icon: formData.icon,
-        seoImage: formData.seoImage,
-        seoTitle: formData.seoTitle,
-        seoDescription: formData.seoDescription,
-        seoKeywords: formData.seoKeywords,
-        count: 0,
-      }
-      setCategories([...categories, newCategory])
+  const handleAddCategory = async () => {
+    if (!formData.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Category name is required.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await createCategory({
+        ...formData,
+        iconData: iconData || formData.icon,
+        seoImageData: seoImageData || formData.seoImage,
+      }).unwrap()
+
+      toast({
+        title: "Category Created Successfully! 🎉",
+        description: "Category has been added successfully.",
+      })
+
       handleCancel()
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error creating category:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to create category. Please try again."
+
+      toast({
+        title: "Failed to Create Category",
+        description: errorMessage,
+        variant: "destructive",
+      })
     }
   }
 
@@ -54,35 +90,109 @@ export default function CategoriesPage() {
       seoDescription: "",
       seoKeywords: "",
     })
+    setIconData("")
+    setSeoImageData("")
   }
 
   const handleDeleteClick = (id: string) => {
     setDeletingId(id)
   }
 
-  const handleDeleteConfirm = () => {
-    if (deletingId) {
-      setCategories(categories.filter((c) => c.id !== deletingId))
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return
+
+    try {
+      await deleteCategory(deletingId).unwrap()
+
+      toast({
+        title: "Category Deleted Successfully! ✅",
+        description: "Category and its images have been deleted successfully.",
+      })
+
       setDeletingId(null)
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error deleting category:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to delete category. Please try again."
+
+      toast({
+        title: "Failed to Delete Category",
+        description: errorMessage,
+        variant: "destructive",
+      })
     }
   }
 
-  const handleEdit = (category: (typeof mockCategories)[0]) => {
+  const handleEdit = (category: Category) => {
     setEditingId(category.id)
     setFormData({
       name: category.name,
       description: category.description,
       icon: category.icon,
-      seoImage: (category as any).seoImage || "",
-      seoTitle: (category as any).seoTitle || "",
-      seoDescription: (category as any).seoDescription || "",
-      seoKeywords: (category as any).seoKeywords || "",
+      seoImage: category.seoImage,
+      seoTitle: category.seoTitle,
+      seoDescription: category.seoDescription,
+      seoKeywords: category.seoKeywords,
     })
+    setIconData("")
+    setSeoImageData("")
   }
 
-  const handleSaveEdit = () => {
-    setCategories(categories.map((c) => (c.id === editingId ? { ...c, ...formData } : c)))
-    handleCancel()
+  const handleSaveEdit = async () => {
+    if (!editingId || !formData.name.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Category name is required.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const updateData: any = { ...formData }
+      
+      // Only pass iconData if it's a new base64 image
+      if (iconData && iconData.startsWith("data:image/")) {
+        updateData.iconData = iconData
+      }
+      
+      // Only pass seoImageData if it's a new base64 image
+      if (seoImageData && seoImageData.startsWith("data:image/")) {
+        updateData.seoImageData = seoImageData
+      }
+
+      await updateCategory({
+        categoryId: editingId,
+        categoryData: updateData,
+      }).unwrap()
+
+      toast({
+        title: "Category Updated Successfully! ✅",
+        description: "Category has been updated successfully.",
+      })
+
+      handleCancel()
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error updating category:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to update category. Please try again."
+
+      toast({
+        title: "Failed to Update Category",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -105,10 +215,20 @@ export default function CategoriesPage() {
           }
         }}
         formData={formData}
-        onFormDataChange={setFormData}
+        onFormDataChange={(data) => {
+          setFormData(data)
+          // Extract base64 data if it's a new image
+          if (data.icon && data.icon.startsWith("data:image/")) {
+            setIconData(data.icon)
+          }
+          if (data.seoImage && data.seoImage.startsWith("data:image/")) {
+            setSeoImageData(data.seoImage)
+          }
+        }}
         onSave={editingId ? handleSaveEdit : handleAddCategory}
         onCancel={handleCancel}
         isEditing={!!editingId}
+        isLoading={isCreating || isUpdating}
       />
 
       <ConfirmationModal
@@ -120,14 +240,37 @@ export default function CategoriesPage() {
         }}
         onConfirm={handleDeleteConfirm}
         title="Delete Category?"
-        description="Are you sure you want to delete this category? This action cannot be undone."
+        description="Are you sure you want to delete this category? This action cannot be undone. All associated images will also be deleted."
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
+        isLoading={isDeleting}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {categories.map((category) => (
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <p className="text-destructive">Error loading categories. Please try again.</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {categories.length === 0 ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center text-muted-foreground">
+                  <p>No categories found. Click "Add Category" to create your first category.</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            categories.map((category) => (
           <Card key={category.id}>
             <CardHeader className="relative">
               <div className="flex items-start justify-between">
@@ -138,7 +281,7 @@ export default function CategoriesPage() {
                   </div>
                 </div>
                 {(category.icon || (category as any).icon) && (
-                  <div className="absolute top-4 right-4 w-14 h-14 rounded-lg border border-border overflow-hidden bg-muted flex items-center justify-center shadow-sm">
+                  <div className="absolute top-0 right-4 w-14 h-14 rounded-lg border border-border overflow-hidden bg-muted flex items-center justify-center shadow-sm">
                     <img
                       src={(category.icon || (category as any).icon) as string}
                       alt={category.name}
@@ -165,8 +308,10 @@ export default function CategoriesPage() {
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }

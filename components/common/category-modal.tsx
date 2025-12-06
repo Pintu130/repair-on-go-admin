@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Upload, X, Image as ImageIcon } from "lucide-react"
+import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react"
 
 interface CategoryFormData {
   name: string
@@ -26,6 +26,7 @@ interface CategoryModalProps {
   onSave: () => void
   onCancel: () => void
   isEditing: boolean
+  isLoading?: boolean
 }
 
 export function CategoryModal({
@@ -36,6 +37,7 @@ export function CategoryModal({
   onSave,
   onCancel,
   isEditing,
+  isLoading = false,
 }: CategoryModalProps) {
   const [categoryImagePreview, setCategoryImagePreview] = useState<string | null>(formData.icon || null)
   const [seoImagePreview, setSeoImagePreview] = useState<string | null>(formData.seoImage || null)
@@ -291,10 +293,11 @@ export function CategoryModal({
             </div>
           </div>
           <div className="flex gap-3 pt-4">
-            <Button onClick={onSave} className="cursor-pointer">
+            <Button onClick={onSave} className="cursor-pointer" disabled={isLoading}>
+              {isLoading && <Loader2 size={16} className="mr-2 animate-spin" />}
               {isEditing ? "Save" : "Add"}
             </Button>
-            <Button variant="outline" className="cursor-pointer" onClick={handleCancel}>
+            <Button variant="outline" className="cursor-pointer" onClick={handleCancel} disabled={isLoading}>
               Cancel
             </Button>
           </div>

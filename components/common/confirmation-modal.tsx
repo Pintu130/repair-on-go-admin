@@ -35,9 +35,9 @@ export function ConfirmationModal({
   variant = "destructive",
   isLoading = false,
 }: ConfirmationModalProps) {
-  const handleConfirm = () => {
-    onConfirm()
-    onOpenChange(false)
+  const handleConfirm = async () => {
+    await onConfirm()
+    // Don't close modal here - let the parent component handle it after async operation completes
   }
 
   return (

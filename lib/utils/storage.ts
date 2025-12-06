@@ -1,7 +1,5 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject, UploadResult } from "firebase/storage"
 import { storage, auth } from "@/lib/firebase/config"
-import { onAuthStateChanged } from "firebase/auth"
-import { getUserData } from "@/lib/utils/cookies"
 
 /**
  * Convert base64 string to Blob
@@ -69,8 +67,19 @@ export async function uploadImageToStorage(
   path: string
 ): Promise<string> {
   try {
+    // Check if we're on client side
+    if (typeof window === "undefined") {
+      throw new Error("Storage upload can only be done on client side")
+    }
+
     if (!storage) {
-      throw new Error("Firebase Storage is not initialized")
+      // Try to initialize storage if not already initialized
+      const { storage: storageInstance } = await import("@/lib/firebase/config")
+      if (!storageInstance) {
+        throw new Error("Firebase Storage is not initialized. Please check Firebase configuration.")
+      }
+      // Note: We can't reassign the imported storage, so we'll use the instance
+      throw new Error("Firebase Storage is not initialized. Please refresh the page.")
     }
 
     // Ensure auth is ready (Firebase SDK handles auth automatically)
@@ -86,8 +95,6 @@ export async function uploadImageToStorage(
       // File object
       fileBlob = file
     }
-
-    console.log(`📤 Uploading image to storage: ${path}`)
     
     // Upload with metadata
     const metadata = {
@@ -97,7 +104,6 @@ export async function uploadImageToStorage(
     const snapshot = await uploadBytes(storageRef, fileBlob, metadata)
     const downloadURL = await getDownloadURL(snapshot.ref)
     
-    console.log(`✅ Image uploaded successfully. URL: ${downloadURL}`)
     return downloadURL
   } catch (error: any) {
     console.error(`❌ Error uploading image to storage:`, error)
@@ -109,9 +115,11 @@ export async function uploadImageToStorage(
       throw new Error("Upload was canceled")
     } else if (error.code === "storage/unknown") {
       throw new Error(`Storage error: ${error.message}`)
+    } else if (error.message?.includes("not initialized")) {
+      throw new Error("Firebase Storage is not initialized. Please refresh the page and try again.")
     }
     
-    throw new Error(`Failed to upload image: ${error.message}`)
+    throw new Error(`Failed to upload image: ${error.message || "Unknown error"}`)
   }
 }
 
@@ -139,9 +147,7 @@ export async function deleteImageFromStorage(imageUrl: string): Promise<void> {
     }
 
     const storageRef = ref(storage, storagePath)
-    console.log(`🗑️ Deleting image from storage: ${storagePath}`)
     await deleteObject(storageRef)
-    console.log(`✅ Image deleted successfully from storage`)
   } catch (error: any) {
     // If file doesn't exist, that's okay (might have been deleted already)
     if (error.code === "storage/object-not-found") {

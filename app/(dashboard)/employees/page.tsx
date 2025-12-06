@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Search, ChevronLeft, ChevronRight, Edit2, Trash2, Plus } from "lucide-react"
+import { Search, ChevronLeft, ChevronRight, Edit2, Trash2, Plus, X } from "lucide-react"
 import { mockEmployees } from "@/data/employees"
-
-const ITEMS_PER_PAGE = 8
+import { SearchInput } from "@/components/common/search-input"
+import { SelectFilter } from "@/components/common/select-filter"
 
 interface Employee {
   id: string
@@ -23,18 +23,36 @@ interface Employee {
 
 export default function EmployeesPage() {
   const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
   const [employees, setEmployees] = useState<Employee[]>(mockEmployees)
+
+  // Check if any filters are active
+  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all"
+
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSearchTerm("")
+    setStatusFilter("all")
+    setCurrentPage(1)
+  }
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    email: string
+    role: string
+    tasksAssigned: number
+    performanceScore: number
+    status: "active" | "inactive"
+  }>({
     name: "",
     email: "",
     role: "",
     tasksAssigned: 0,
     performanceScore: 0,
-    status: "active" as const,
+    status: "active",
   })
 
   const filtered = useMemo(() => {
@@ -47,8 +65,8 @@ export default function EmployeesPage() {
     })
   }, [searchTerm, statusFilter, employees])
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
-  const paginatedData = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const handleAdd = () => {
     setEditingId(null)
@@ -90,42 +108,67 @@ export default function EmployeesPage() {
         </Button>
       </div>
 
+      {/* Custom Filter Section */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-                  size={18}
-                />
-                <input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value)
-                    setCurrentPage(1)
-                  }}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-background"
-                />
-              </div>
-            </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as any)
+        <CardContent className="px-5">
+          <div className="flex items-end justify-between gap-3">
+            {/* Left Side - Search Input */}
+            <SearchInput
+              value={searchTerm}
+              onChange={(value) => {
+                setSearchTerm(value)
                 setCurrentPage(1)
               }}
-              className="px-4 py-2 rounded-lg border border-border bg-background"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+              placeholder="Search by name or email..."
+            />
+
+            {/* Right Side - Status Filter, Page Size, and Clear Button */}
+            <div className="flex items-end gap-2">
+              {/* Status Filter */}
+              <SelectFilter
+                value={statusFilter}
+                onChange={(value) => {
+                  setStatusFilter(value as "all" | "active" | "inactive")
+                  setCurrentPage(1)
+                }}
+                options={[
+                  { value: "all", label: "All Status" },
+                  { value: "active", label: "Active" },
+                  { value: "inactive", label: "Inactive" },
+                ]}
+                label="Status"
+                placeholder="All Status"
+              />
+
+              {/* Page Size */}
+              <SelectFilter
+                value={pageSize.toString()}
+                onChange={(value) => {
+                  setPageSize(Number(value))
+                  setCurrentPage(1)
+                }}
+                options={[
+                  { value: "5", label: "5" },
+                  { value: "10", label: "10" },
+                  { value: "20", label: "20" },
+                  { value: "50", label: "50" },
+                ]}
+                label="Page Size"
+                width="w-[140px]"
+              />
+
+              {/* Clear Filters Button - Only show when filters are active */}
+              {hasActiveFilters && (
+                <Button
+                  variant="outline"
+                  onClick={handleClearFilters}
+                  className="gap-2 cursor-pointer"
+                >
+                  <X size={16} />
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -195,8 +238,8 @@ export default function EmployeesPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between mt-6">
             <p className="text-sm text-muted-foreground">
-              Showing {paginatedData.length ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0} to{" "}
-              {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+              Showing {paginatedData.length ? (currentPage - 1) * pageSize + 1 : 0} to{" "}
+              {Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
             </p>
             <div className="flex gap-2">
               <Button

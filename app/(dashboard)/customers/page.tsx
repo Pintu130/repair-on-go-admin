@@ -13,7 +13,7 @@ import { Pagination } from "@/components/common/pagination"
 import { CustomerModal } from "@/components/common/customer-modal"
 import { StatusBadge } from "@/components/common/status-badge"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
-import { useGetCustomersQuery, useCreateCustomerMutation, useUpdateCustomerMutation } from "@/lib/store/api/customersApi"
+import { useGetCustomersQuery, useCreateCustomerMutation, useUpdateCustomerMutation, useDeleteCustomerMutation } from "@/lib/store/api/customersApi"
 import { Loader } from "@/components/ui/loader"
 import { useToast } from "@/hooks/use-toast"
 
@@ -27,6 +27,7 @@ export default function CustomersPage() {
   const { data, isLoading, isError, error, refetch } = useGetCustomersQuery()
   const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
   const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
+  const [deleteCustomer, { isLoading: isDeleting }] = useDeleteCustomerMutation()
   const { toast } = useToast()
 
   // Extract customers from API response or use empty array
@@ -38,14 +39,12 @@ export default function CustomersPage() {
   const [formData, setFormData] = useState({
     // Personal Information
     avatar: "",
-    image: "", // Image stored in "image" key as per requirement
     firstName: "",
     lastName: "",
     age: "",
     mobileNumber: "",
     emailAddress: "",
-    password: "", // Password for Firebase Authentication (only used during create)
-    // Address Information
+    password: "", 
     houseNo: "",
     roadName: "",
     nearbyLandmark: "",
@@ -53,7 +52,6 @@ export default function CustomersPage() {
     city: "",
     pincode: "",
     addressType: "",
-    // Legacy fields for compatibility
     name: "",
     email: "",
     totalOrders: 0,
@@ -87,18 +85,16 @@ export default function CustomersPage() {
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-  // console.log("🔵 paginatedData", paginatedData)
   const handleAdd = () => {
     setEditingId(null)
     setFormData({
       avatar: "",
-      image: "",
       firstName: "",
       lastName: "",
       age: "",
       mobileNumber: "",
       emailAddress: "",
-      password: "", // Password for Firebase Authentication
+      password: "", 
       houseNo: "",
       roadName: "",
       nearbyLandmark: "",
@@ -118,7 +114,6 @@ export default function CustomersPage() {
     setEditingId(customer.id)
     setFormData({
       avatar: customer.avatar || "",
-      image: customer.avatar || "", // Store image in image key
       firstName: customer.firstName || customer.name.split(" ")[0] || "",
       lastName: customer.lastName || customer.name.split(" ").slice(1).join(" ") || "",
       age: customer.age || "",
@@ -191,8 +186,7 @@ export default function CustomersPage() {
         nearbyLandmark: formData.nearbyLandmark || null,
         addressType: formData.addressType || null,
         status: formData.status || "active",
-        image: formData.image || formData.avatar || null, // Store in "image" key
-        avatar: formData.image || formData.avatar || null, // For backward compatibility
+        avatar: formData.avatar || null, // For backward compatibility
       }
 
       // Include password only when creating (not updating)
@@ -226,7 +220,6 @@ export default function CustomersPage() {
       setEditingId(null)
       setFormData({
         avatar: "",
-        image: "",
         firstName: "",
         lastName: "",
         age: "",
@@ -263,12 +256,37 @@ export default function CustomersPage() {
     setIsDeleteOpen(true)
   }
 
-  const handleDeleteConfirm = () => {
-    if (deleteId) {
-      // TODO: Implement delete customer API call
-      // For now, just refetch
+  const handleDeleteConfirm = async () => {
+    if (!deleteId) return
+
+    try {
+      await deleteCustomer(deleteId).unwrap()
+
+      toast({
+        title: "Customer Deleted Successfully! ✅",
+        description: "Customer has been deleted from Firestore, Firebase Authentication, and Storage.",
+      })
+
+      // Close modal and reset
+      setIsDeleteOpen(false)
       setDeleteId(null)
+
+      // Refetch customers list
       refetch()
+    } catch (error: any) {
+      console.error("❌ Error deleting customer:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to delete customer. Please try again."
+
+      toast({
+        title: "Failed to Delete Customer",
+        description: errorMessage,
+        variant: "destructive",
+      })
     }
   }
 
@@ -494,10 +512,11 @@ export default function CustomersPage() {
         onOpenChange={setIsDeleteOpen}
         onConfirm={handleDeleteConfirm}
         title="Delete Customer"
-        description="Are you sure you want to delete this customer? This action cannot be undone."
+        description="Are you sure you want to delete this customer? This will delete the customer from Firestore, Firebase Authentication, and all associated files from Storage. This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
+        isLoading={isDeleting}
       />
     </div>
   )

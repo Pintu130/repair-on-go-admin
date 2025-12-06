@@ -1,9 +1,8 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
-import { collection, getDocs, doc, getDoc, setDoc, updateDoc, Timestamp, serverTimestamp } from "firebase/firestore"
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from "firebase/firestore"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { db, auth } from "@/lib/firebase/config"
-// Image upload logic commented out - storing base64 directly in Firestore
-// import { uploadImageToStorage, deleteImageFromStorage, isFirebaseStorageUrl } from "@/lib/utils/storage"
+import { uploadImageToStorage, deleteImageFromStorage, isFirebaseStorageUrl } from "@/lib/utils/storage"
 import type { Customer } from "@/data/customers"
 
 export interface CustomersResponse {
@@ -58,6 +57,7 @@ const convertFirestoreDocToCustomer = (docData: any, docId: string): Customer =>
 
   return {
     id: docId || docData.id || "",
+    uid: docData.uid || "",
     name: fullName,
     firstName: firstName || undefined,
     lastName: lastName || undefined,
@@ -88,32 +88,15 @@ export const customersApi = createApi({
     getCustomers: builder.query<CustomersResponse, void>({
       queryFn: async () => {
         try {
-          console.log("🔥 Fetching customers from Firestore...")
 
           const customersRef = collection(db, "customers")
           const querySnapshot = await getDocs(customersRef)
 
-          console.log(`✅ Found ${querySnapshot.size} customers in Firestore`)
-
           const customers: Customer[] = querySnapshot.docs.map((docSnapshot) => {
             const docData = docSnapshot.data()
-            console.log(`📄 Processing customer document ${docSnapshot.id}:`, {
-              firstName: docData.firstName,
-              lastName: docData.lastName,
-              email: docData.email,
-              mobileNumber: docData.mobileNumber,
-              city: docData.city,
-            })
+           
             return convertFirestoreDocToCustomer(docData, docSnapshot.id)
           })
-
-          console.log(`✅ Converted ${customers.length} customers:`, customers.map(c => ({
-            id: c.id,
-            name: c.name,
-            email: c.email,
-            phone: c.phone,
-            city: c.city,
-          })))
 
           // Sort by joinDate descending (newest first)
           customers.sort((a, b) => {
@@ -183,7 +166,6 @@ export const customersApi = createApi({
     createCustomer: builder.mutation<{ success: boolean; customerId: string }, any>({
       queryFn: async (customerData) => {
         try {
-          console.log("🔥 Creating new customer with Firebase Authentication...", customerData)
 
           // Get email and password for Firebase Auth
           const email = customerData.emailAddress || customerData.email || ""
@@ -239,9 +221,45 @@ export const customersApi = createApi({
           const newCustomerRef = doc(customersRef)
           const customerId = newCustomerRef.id
 
-          // Step 3: Store image as base64 directly in Firestore (no Storage upload)
+          // Step 3: Upload image to Firebase Storage (if image provided)
           let imageUrl: string | null = null
-          imageUrl = customerData.image || customerData.avatar || null
+          const imageData = (customerData.image || customerData.avatar || "").trim() || null
+          
+          if (imageData && imageData.length > 0) {
+            try {
+              // Check if it's already a Firebase Storage URL (shouldn't happen on create, but just in case)
+              if (isFirebaseStorageUrl(imageData)) {
+                imageUrl = imageData
+              } else {
+                // Upload new image to Firebase Storage
+                // Path: customerImage/{customerId}/image.{extension}
+                const fileExtension = imageData.startsWith("data:image/")
+                  ? imageData.split(";")[0].split("/")[1] || "jpg"
+                  : "jpg"
+                const storagePath = `customerImage/${customerId}/image.${fileExtension}`
+                
+                console.log("📤 Uploading customer image to Firebase Storage...", {
+                  customerId,
+                  storagePath,
+                  fileExtension,
+                  imageDataPreview: imageData.substring(0, 50) + "...",
+                })
+                imageUrl = await uploadImageToStorage(imageData, storagePath)
+                console.log(`✅ Customer image uploaded successfully: ${imageUrl}`)
+              }
+            } catch (storageError: any) {
+              console.error("❌ Error uploading image to Storage:", storageError)
+              console.error("❌ Storage error details:", {
+                code: storageError.code,
+                message: storageError.message,
+                stack: storageError.stack,
+              })
+              // Continue without image - don't fail the entire customer creation
+              console.warn("⚠️ Continuing customer creation without image")
+            }
+          } else {
+            console.warn("⚠️ No image data provided for customer creation")
+          }
 
           // Step 4: Prepare customer data for Firestore
           const firestoreData: any = {
@@ -261,31 +279,33 @@ export const customersApi = createApi({
             addressType: customerData.addressType || null,
             role: "customer",
             status: customerData.status || "active",
-            image: imageUrl,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           }
 
-          // Remove null/undefined/empty fields
+          // Add image URL only if it exists (don't remove if null, just don't add it)
+          if (imageUrl) {
+            firestoreData.avatar = imageUrl // Also store in avatar for backward compatibility
+          } else {
+            console.warn("⚠️ No image URL to save in Firestore")
+          }
+
+          // Remove null/undefined/empty fields (but keep imageUrl if it exists)
           Object.keys(firestoreData).forEach((key) => {
-            if (firestoreData[key] === null || firestoreData[key] === undefined || firestoreData[key] === "") {
+            if (key !== "image" && key !== "avatar" && (firestoreData[key] === null || firestoreData[key] === undefined || firestoreData[key] === "")) {
               delete firestoreData[key]
             }
           })
 
-          console.log("📝 Saving customer data to Firestore:", firestoreData)
-
           // Step 5: Save to Firestore
           try {
             await setDoc(newCustomerRef, firestoreData)
-            console.log(`✅ Customer created successfully with ID: ${customerId} and UID: ${uid}`)
           } catch (firestoreError: any) {
             console.error("❌ Error saving customer to Firestore:", firestoreError)
 
             // If Firestore save fails, we should clean up the Firebase Auth user
             // However, deleting a user requires admin privileges on client-side
             // Log a warning for manual cleanup if needed
-            console.warn(`⚠️ Firebase Auth user created (UID: ${uid}) but Firestore save failed. Manual cleanup may be required.`)
 
             return {
               error: {
@@ -318,7 +338,6 @@ export const customersApi = createApi({
     updateCustomer: builder.mutation<{ success: boolean }, { customerId: string; customerData: any }>({
       queryFn: async ({ customerId, customerData }) => {
         try {
-          console.log(`🔥 Updating customer ${customerId} in Firestore...`, customerData)
 
           // Get existing customer document
           const customerDocRef = doc(db, "customers", customerId)
@@ -335,51 +354,55 @@ export const customersApi = createApi({
           }
 
           const existingData = customerDoc.data()
-          const existingImageUrl = existingData.image || existingData.avatar || null
-          const newImageData = customerData.image || customerData.avatar
+          const existingImageUrl = existingData.avatar || null
+          const newImageData = customerData.avatar
 
-          // Image upload logic commented out - storing base64 directly in Firestore
-          // Handle image update
-          // let imageUrl: string | null = existingImageUrl
-          // let shouldDeleteOldImage = false
-          // 
-          // if (newImageData) {
-          //   if (isFirebaseStorageUrl(newImageData)) {
-          //     // Already a Firebase Storage URL (not changed)
-          //     imageUrl = newImageData
-          //   } else {
-          //     // New image uploaded (base64 or file object)
-          //     // Delete old image from storage if it exists
-          //     if (existingImageUrl && isFirebaseStorageUrl(existingImageUrl)) {
-          //       shouldDeleteOldImage = true
-          //     }
-          //     
-          //     // Upload new image
-          //     const fileExtension = newImageData.startsWith("data:image/") 
-          //       ? newImageData.split(";")[0].split("/")[1] || "jpg"
-          //       : "jpg"
-          //     const storagePath = `customers/${customerId}/image.${fileExtension}`
-          //     
-          //     console.log("📤 Uploading new customer image to Firebase Storage...")
-          //     imageUrl = await uploadImageToStorage(newImageData, storagePath)
-          //     
-          //     // Delete old image after successful upload
-          //     if (shouldDeleteOldImage && existingImageUrl) {
-          //       console.log("🗑️ Deleting old customer image from Firebase Storage...")
-          //       try {
-          //         await deleteImageFromStorage(existingImageUrl)
-          //       } catch (deleteError) {
-          //         console.warn("⚠️ Failed to delete old image, but continuing with update:", deleteError)
-          //       }
-          //     }
-          //   }
-          // }
-
-          // Store image as base64 directly in Firestore (no Storage upload)
+          // Handle image update - Upload to Firebase Storage and delete old image
           let imageUrl: string | null = existingImageUrl
+          let shouldDeleteOldImage = false
+
           if (newImageData) {
-            // Update image if new one provided
-            imageUrl = newImageData
+            if (isFirebaseStorageUrl(newImageData)) {
+              // Already a Firebase Storage URL (not changed)
+              imageUrl = newImageData
+              console.log("✅ Image is already a Firebase Storage URL, no upload needed")
+            } else {
+              // New image uploaded (base64 or file object)
+              // Mark old image for deletion if it exists and is a Storage URL
+              if (existingImageUrl && isFirebaseStorageUrl(existingImageUrl)) {
+                shouldDeleteOldImage = true
+              }
+
+              // Upload new image to Firebase Storage
+              // Path: customerImage/{customerId}/image.{extension}
+              const fileExtension = newImageData.startsWith("data:image/")
+                ? newImageData.split(";")[0].split("/")[1] || "jpg"
+                : "jpg"
+              const storagePath = `customerImage/${customerId}/image.${fileExtension}`
+
+              console.log("📤 Uploading new customer image to Firebase Storage...")
+              try {
+                imageUrl = await uploadImageToStorage(newImageData, storagePath)
+                console.log(`✅ New customer image uploaded successfully: ${imageUrl}`)
+
+                // Delete old image after successful upload
+                if (shouldDeleteOldImage && existingImageUrl) {
+                  console.log("🗑️ Deleting old customer image from Firebase Storage...")
+                  try {
+                    await deleteImageFromStorage(existingImageUrl)
+                    console.log("✅ Old customer image deleted successfully")
+                  } catch (deleteError: any) {
+                    // Log error but continue - old image deletion failure shouldn't block update
+                    console.warn("⚠️ Failed to delete old image, but continuing with update:", deleteError)
+                  }
+                }
+              } catch (uploadError: any) {
+                console.error("❌ Error uploading new image to Storage:", uploadError)
+                // Continue with existing image if upload fails
+                console.warn("⚠️ Continuing update with existing image")
+                imageUrl = existingImageUrl
+              }
+            }
           }
 
           // Prepare update data (don't update email)
@@ -412,12 +435,8 @@ export const customersApi = createApi({
             }
           })
 
-          console.log("📝 Updating customer data:", updateData)
-
           // Update in Firestore
           await updateDoc(customerDocRef, updateData)
-
-          console.log(`✅ Customer updated successfully: ${customerId}`)
 
           return {
             data: {
@@ -440,6 +459,46 @@ export const customersApi = createApi({
         "Customers",
       ],
     }),
+    deleteCustomer: builder.mutation<{ success: boolean }, string>({
+      queryFn: async (customerId: string) => {
+        try {
+          console.log(`🔥 Deleting customer ${customerId}...`)
+
+          // Call server-side API route to delete customer
+          // This will delete from Firestore, Firebase Auth, and Storage
+          const deleteResponse = await fetch(`/api/customers/${customerId}`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          })
+
+          if (!deleteResponse.ok) {
+            const errorData = await deleteResponse.json()
+            throw new Error(errorData.error || "Failed to delete customer")
+          }
+
+          const deleteResult = await deleteResponse.json()
+          console.log(`✅ Customer deleted successfully:`, deleteResult)
+
+          return {
+            data: {
+              success: true,
+            },
+          }
+        } catch (error: any) {
+          console.error(`❌ Error deleting customer ${customerId}:`, error)
+          return {
+            error: {
+              status: "CUSTOM_ERROR",
+              error: error.message || "Failed to delete customer",
+              data: error.message || "Failed to delete customer",
+            },
+          }
+        }
+      },
+      invalidatesTags: ["Customers"],
+    }),
   }),
 })
 
@@ -448,5 +507,6 @@ export const {
   useGetCustomerByIdQuery,
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
+  useDeleteCustomerMutation,
 } = customersApi
 

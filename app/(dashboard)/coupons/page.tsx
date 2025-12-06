@@ -11,85 +11,26 @@ import { SelectFilter } from "@/components/common/select-filter"
 import { Pagination } from "@/components/common/pagination"
 import { CouponModal } from "@/components/common/coupon-modal"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
-
-interface Coupon {
-  id: string
-  code: string
-  discountType: "percentage" | "fixed"
-  discountValue: number
-  validFrom: string
-  validTo: string
-  status: "active" | "inactive"
-  usageLimit?: number
-  minimumOrderAmount?: number
-  usedCount?: number
-}
-
-const mockCoupons: Coupon[] = [
-  {
-    id: "C001",
-    code: "SAVE20",
-    discountType: "percentage",
-    discountValue: 20,
-    validFrom: "2024-02-01",
-    validTo: "2024-02-29",
-    status: "active",
-    usageLimit: 100,
-    minimumOrderAmount: 500,
-    usedCount: 45,
-  },
-  {
-    id: "C002",
-    code: "FLAT100",
-    discountType: "fixed",
-    discountValue: 100,
-    validFrom: "2024-02-10",
-    validTo: "2024-03-10",
-    status: "active",
-    usageLimit: 50,
-    minimumOrderAmount: 1000,
-    usedCount: 12,
-  },
-  {
-    id: "C003",
-    code: "WELCOME10",
-    discountType: "percentage",
-    discountValue: 10,
-    validFrom: "2024-01-01",
-    validTo: "2024-12-31",
-    status: "active",
-    usedCount: 234,
-  },
-  {
-    id: "C004",
-    code: "FLAT50",
-    discountType: "fixed",
-    discountValue: 50,
-    validFrom: "2024-01-15",
-    validTo: "2024-02-15",
-    status: "inactive",
-    usageLimit: 200,
-    usedCount: 180,
-  },
-  {
-    id: "C005",
-    code: "SPRING25",
-    discountType: "percentage",
-    discountValue: 25,
-    validFrom: "2024-03-01",
-    validTo: "2024-03-31",
-    status: "active",
-    minimumOrderAmount: 800,
-    usedCount: 5,
-  },
-]
+import { useGetCouponsQuery, useCreateCouponMutation, useUpdateCouponMutation, useDeleteCouponMutation, type Coupon } from "@/lib/store/api/couponsApi"
+import { useToast } from "@/hooks/use-toast"
+import { Loader2 } from "lucide-react"
 
 const statusColors = {
   active: "bg-green-100 text-green-800",
-  inactive: "bg-gray-100 text-gray-800",
+  inactive: "bg-red-100 text-red-800",
 }
 
 export default function CouponsPage() {
+  // Fetch coupons from Firebase
+  const { data, isLoading, isError, error, refetch } = useGetCouponsQuery()
+  const [createCoupon, { isLoading: isCreating }] = useCreateCouponMutation()
+  const [updateCoupon, { isLoading: isUpdating }] = useUpdateCouponMutation()
+  const [deleteCoupon, { isLoading: isDeleting }] = useDeleteCouponMutation()
+  const { toast } = useToast()
+
+  // Extract coupons from API response or use empty array
+  const coupons = data?.coupons || []
+
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
@@ -106,8 +47,6 @@ export default function CouponsPage() {
     setDiscountTypeFilter("all")
     setCurrentPage(1)
   }
-
-  const [coupons, setCoupons] = useState<Coupon[]>(mockCoupons)
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -140,14 +79,16 @@ export default function CouponsPage() {
     })
   }, [searchTerm, statusFilter, discountTypeFilter, coupons])
 
-  const stats = {
-    totalCoupons: filtered.length,
-    activeCoupons: filtered.filter((c) => c.status === "active").length,
-    expiredCoupons: filtered.filter((c) => {
-      const today = new Date().toISOString().split("T")[0]
-      return c.validTo < today
-    }).length,
-  }
+  const stats = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0]
+    return {
+      totalCoupons: coupons.length, // Total coupons (all, not filtered)
+      activeCoupons: coupons.filter((c) => c.status === "active").length, // Active from all coupons
+      expiredCoupons: coupons.filter((c) => {
+        return c.validTo < today
+      }).length, // Expired from all coupons
+    }
+  }, [coupons])
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -183,40 +124,97 @@ export default function CouponsPage() {
     setIsOpen(true)
   }
 
-  const handleSave = () => {
-    if (!formData.code || !formData.validFrom || !formData.validTo || formData.discountValue <= 0) return
-
-    if (editingId) {
-      setCoupons(
-        coupons.map((c) =>
-          c.id === editingId
-            ? {
-                ...c,
-                ...formData,
-                id: editingId,
-              }
-            : c,
-        ),
-      )
-    } else {
-      const newCoupon: Coupon = {
-        ...formData,
-        id: `C${Date.now().toString().slice(-3)}`,
-        usedCount: 0,
-      }
-      setCoupons([...coupons, newCoupon])
+  const handleSave = async () => {
+    if (!formData.code || !formData.validFrom || !formData.validTo || formData.discountValue <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill all required fields correctly.",
+        variant: "destructive",
+      })
+      return
     }
-    setIsOpen(false)
+
+    try {
+      if (editingId) {
+        await updateCoupon({
+          couponId: editingId,
+          couponData: formData,
+        }).unwrap()
+
+        toast({
+          title: "Coupon Updated Successfully! ✅",
+          description: `${formData.code} has been updated successfully.`,
+        })
+      } else {
+        await createCoupon(formData).unwrap()
+
+        toast({
+          title: "Coupon Created Successfully! 🎉",
+          description: `Coupon ${formData.code} has been created successfully.`,
+        })
+      }
+
+      setIsOpen(false)
+      setEditingId(null)
+      setFormData({
+        code: "",
+        discountType: "percentage",
+        discountValue: 0,
+        validFrom: "",
+        validTo: "",
+        status: "active",
+        usageLimit: undefined,
+        minimumOrderAmount: undefined,
+      })
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error saving coupon:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to save coupon. Please try again."
+
+      toast({
+        title: editingId ? "Failed to Update Coupon" : "Failed to Create Coupon",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDeleteClick = (id: string) => {
     setDeletingId(id)
   }
 
-  const handleDeleteConfirm = () => {
-    if (deletingId) {
-      setCoupons(coupons.filter((c) => c.id !== deletingId))
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return
+
+    try {
+      await deleteCoupon(deletingId).unwrap()
+
+      toast({
+        title: "Coupon Deleted Successfully! ✅",
+        description: "Coupon has been deleted successfully.",
+      })
+
       setDeletingId(null)
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error deleting coupon:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to delete coupon. Please try again."
+
+      toast({
+        title: "Failed to Delete Coupon",
+        description: errorMessage,
+        variant: "destructive",
+      })
     }
   }
 
@@ -242,9 +240,6 @@ export default function CouponsPage() {
         <div className="flex gap-2">
           <Button onClick={handleAdd} className="cursor-pointer">
             <Plus size={16} className="mr-2" /> Add Coupon
-          </Button>
-          <Button variant="outline" className="cursor-pointer">
-            <Download size={16} className="mr-2" /> Export
           </Button>
         </div>
       </div>
@@ -353,85 +348,105 @@ export default function CouponsPage() {
 
       <Card>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border">
-                <tr>
-                  <th className="text-left py-3 px-4 font-semibold">Coupon Code</th>
-                  <th className="text-left py-3 px-4 font-semibold">Discount</th>
-                  <th className="text-left py-3 px-4 font-semibold">Valid From</th>
-                  <th className="text-left py-3 px-4 font-semibold">Valid To</th>
-                  <th className="text-left py-3 px-4 font-semibold">Usage</th>
-                  <th className="text-left py-3 px-4 font-semibold">Min. Order</th>
-                  <th className="text-left py-3 px-4 font-semibold">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((coupon) => (
-                  <tr key={coupon.id} className="border-b border-border hover:bg-muted/50">
-                    <td className="py-3 px-4">
-                      <div className="font-mono font-semibold">{coupon.code}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        {coupon.discountType === "percentage" ? (
-                          <Percent size={14} className="text-muted-foreground" />
-                        ) : (
-                          <span className="text-muted-foreground">₹</span>
-                        )}
-                        <span className="font-semibold">{formatDiscount(coupon)}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-xs">{coupon.validFrom}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex flex-col">
-                        <span className="text-xs">{coupon.validTo}</span>
-                        {isExpired(coupon.validTo) && (
-                          <span className="text-xs text-destructive">Expired</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-xs">
-                      {coupon.usedCount || 0}
-                      {coupon.usageLimit && ` / ${coupon.usageLimit}`}
-                    </td>
-                    <td className="py-3 px-4 text-xs">
-                      {coupon.minimumOrderAmount ? `₹${coupon.minimumOrderAmount}` : "-"}
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge className={statusColors[coupon.status]}>
-                        {coupon.status === "active" ? "Active" : "Inactive"}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4 flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEdit(coupon)} className="cursor-pointer">
-                        <Edit2 size={14} />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(coupon.id)}
-                        className="text-destructive cursor-pointer shrink-0"
-                      >
-                        <Trash2 size={14} />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : isError ? (
+            <div className="text-center py-12">
+              <p className="text-destructive">Error loading coupons. Please try again.</p>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-border">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-semibold">Coupon Code</th>
+                      <th className="text-left py-3 px-4 font-semibold">Discount</th>
+                      <th className="text-left py-3 px-4 font-semibold">Valid From</th>
+                      <th className="text-left py-3 px-4 font-semibold">Valid To</th>
+                      <th className="text-left py-3 px-4 font-semibold">Usage</th>
+                      <th className="text-left py-3 px-4 font-semibold">Min. Order</th>
+                      <th className="text-left py-3 px-4 font-semibold">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedData.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="text-center py-12 text-muted-foreground">
+                          No coupons found
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedData.map((coupon) => (
+                        <tr key={coupon.id} className="border-b border-border hover:bg-muted/50">
+                          <td className="py-3 px-4">
+                            <div className="font-mono font-semibold">{coupon.code}</div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-1">
+                              {/* {coupon.discountType === "percentage" ? (
+                                <Percent size={14} className="text-muted-foreground" />
+                              ) : (
+                                <span className="text-muted-foreground">₹</span>
+                              )} */}
+                              <span className="font-semibold">{formatDiscount(coupon)}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-xs">{coupon.validFrom}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex flex-col">
+                              <span className="text-xs">{coupon.validTo}</span>
+                              {isExpired(coupon.validTo) && (
+                                <span className="text-xs text-destructive">Expired</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 text-xs">
+                            {coupon.usedCount || 0}
+                            {coupon.usageLimit && ` / ${coupon.usageLimit}`}
+                          </td>
+                          <td className="py-3 px-4 text-xs">
+                            {coupon.minimumOrderAmount ? `₹${coupon.minimumOrderAmount}` : "-"}
+                          </td>
+                          <td className="py-3 px-4">
+                            <Badge className={statusColors[coupon.status]}>
+                              {coupon.status === "active" ? "Active" : "Inactive"}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-4 flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(coupon)} className="cursor-pointer">
+                              <Edit2 size={14} />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteClick(coupon.id)}
+                              className="text-destructive cursor-pointer shrink-0"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Pagination */}
-          {totalPages > 0 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              pageSize={pageSize}
-              totalItems={filtered.length}
-              onPageChange={setCurrentPage}
-            />
+              {/* Pagination */}
+              {totalPages > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalItems={filtered.length}
+                  onPageChange={setCurrentPage}
+                />
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -491,6 +506,7 @@ export default function CouponsPage() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
+        isLoading={isDeleting}
       />
     </div>
   )
