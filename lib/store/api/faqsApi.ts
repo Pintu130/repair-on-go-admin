@@ -6,6 +6,7 @@ export interface FAQ {
   id: string
   question: string
   answer: string
+  status?: "active" | "inactive"
   createdAt?: string
   updatedAt?: string
   order?: number // For future: ordering FAQs
@@ -40,6 +41,7 @@ const convertFirestoreDocToFAQ = (docData: any, docId: string): FAQ => {
     id: docId || docData.id || "",
     question: docData.question || "",
     answer: docData.answer || "",
+    status: docData.status || "active",
     order: docData.order || 0,
     createdAt: convertTimestamp(docData.createdAt),
     updatedAt: convertTimestamp(docData.updatedAt),
@@ -150,6 +152,7 @@ export const faqsApi = createApi({
             id: faqId,
             question: faqData.question.trim(),
             answer: faqData.answer.trim(),
+            status: faqData.status || "active",
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
           }
@@ -208,6 +211,9 @@ export const faqsApi = createApi({
           if (faqData.answer !== undefined) {
             updateData.answer = faqData.answer.trim()
           }
+          if (faqData.status !== undefined) {
+            updateData.status = faqData.status
+          }
           if (faqData.order !== undefined) {
             updateData.order = faqData.order
           }
@@ -260,6 +266,52 @@ export const faqsApi = createApi({
       },
       invalidatesTags: ["FAQs"],
     }),
+    updateFAQStatus: builder.mutation<
+      { success: boolean },
+      { faqId: string; status: "active" | "inactive" }
+    >({
+      queryFn: async ({ faqId, status }) => {
+        try {
+          const faqDocRef = doc(db, "faq", faqId)
+          const faqDoc = await getDoc(faqDocRef)
+
+          if (!faqDoc.exists()) {
+            return {
+              error: {
+                status: "CUSTOM_ERROR",
+                error: "FAQ not found",
+                data: "FAQ not found",
+              },
+            }
+          }
+
+          // Update status
+          await updateDoc(faqDocRef, {
+            status,
+            updatedAt: serverTimestamp(),
+          })
+
+          return {
+            data: {
+              success: true,
+            },
+          }
+        } catch (error: any) {
+          console.error(`❌ Error updating FAQ status ${faqId}:`, error)
+          return {
+            error: {
+              status: "CUSTOM_ERROR",
+              error: error.message || "Failed to update FAQ status",
+              data: error.message || "Failed to update FAQ status",
+            },
+          }
+        }
+      },
+      invalidatesTags: (result, error, { faqId }) => [
+        { type: "FAQs", id: faqId },
+        "FAQs",
+      ],
+    }),
   }),
 })
 
@@ -269,5 +321,6 @@ export const {
   useCreateFAQMutation,
   useUpdateFAQMutation,
   useDeleteFAQMutation,
+  useUpdateFAQStatusMutation,
 } = faqsApi
 

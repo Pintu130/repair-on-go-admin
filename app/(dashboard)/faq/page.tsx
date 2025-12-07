@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Plus, Edit2, Trash2, ChevronDown, Loader2 } from "lucide-react"
-import { useGetFAQsQuery, useCreateFAQMutation, useUpdateFAQMutation, useDeleteFAQMutation, type FAQ } from "@/lib/store/api/faqsApi"
+import { useGetFAQsQuery, useCreateFAQMutation, useUpdateFAQMutation, useDeleteFAQMutation, useUpdateFAQStatusMutation, type FAQ } from "@/lib/store/api/faqsApi"
 import { useToast } from "@/hooks/use-toast"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
+import { Switch } from "@/components/ui/switch"
+import { StatusBadge } from "@/components/common/status-badge"
 
 export default function FAQPage() {
   // Fetch FAQs from Firebase
@@ -16,6 +18,7 @@ export default function FAQPage() {
   const [createFAQ, { isLoading: isCreating }] = useCreateFAQMutation()
   const [updateFAQ, { isLoading: isUpdating }] = useUpdateFAQMutation()
   const [deleteFAQ, { isLoading: isDeleting }] = useDeleteFAQMutation()
+  const [updateFAQStatus, { isLoading: isUpdatingStatus }] = useUpdateFAQStatusMutation()
   const { toast } = useToast()
 
   // Extract FAQs from API response or use empty array
@@ -25,7 +28,7 @@ export default function FAQPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({ question: "", answer: "" })
+  const [formData, setFormData] = useState({ question: "", answer: "", status: "active" as "active" | "inactive" })
 
   const handleAdd = async () => {
     if (!formData.question.trim() || !formData.answer.trim()) {
@@ -45,7 +48,7 @@ export default function FAQPage() {
         description: "FAQ has been added successfully.",
       })
 
-      setFormData({ question: "", answer: "" })
+      setFormData({ question: "", answer: "", status: "active" })
       setIsAdding(false)
       refetch()
     } catch (error: any) {
@@ -67,7 +70,7 @@ export default function FAQPage() {
 
   const handleEdit = (faq: FAQ) => {
     setEditingId(faq.id)
-    setFormData({ question: faq.question, answer: faq.answer })
+    setFormData({ question: faq.question, answer: faq.answer, status: faq.status || "active" })
     setIsAdding(false)
   }
 
@@ -93,7 +96,7 @@ export default function FAQPage() {
       })
 
       setEditingId(null)
-      setFormData({ question: "", answer: "" })
+      setFormData({ question: "", answer: "", status: "active" })
       refetch()
     } catch (error: any) {
       console.error("❌ Error updating FAQ:", error)
@@ -146,6 +149,35 @@ export default function FAQPage() {
     }
   }
 
+  const handleStatusToggle = async (faqId: string, currentStatus: "active" | "inactive") => {
+    const newStatus = currentStatus === "active" ? "inactive" : "active"
+    
+    try {
+      await updateFAQStatus({ faqId, status: newStatus }).unwrap()
+
+      toast({
+        title: "Status Updated Successfully! ✅",
+        description: `FAQ status has been updated to ${newStatus}.`,
+      })
+
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error updating FAQ status:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to update FAQ status. Please try again."
+
+      toast({
+        title: "Failed to Update Status",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -189,6 +221,19 @@ export default function FAQPage() {
                 rows={4}
               />
             </div>
+            {/* <div className="flex items-center justify-between">
+              <Label htmlFor="status">Status</Label>
+              <div className="flex items-center gap-3">
+                <StatusBadge status={formData.status} />
+                <Switch
+                  id="status"
+                  checked={formData.status === "active"}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, status: checked ? "active" : "inactive" })
+                  }
+                />
+              </div>
+            </div> */}
             <div className="flex gap-3">
               <Button
                 onClick={editingId ? handleSaveEdit : handleAdd}
@@ -204,7 +249,7 @@ export default function FAQPage() {
                 onClick={() => {
                   setIsAdding(false)
                   setEditingId(null)
-                  setFormData({ question: "", answer: "" })
+                  setFormData({ question: "", answer: "", status: "active" })
                 }}
                 disabled={isCreating || isUpdating}
               >
@@ -245,7 +290,10 @@ export default function FAQPage() {
                   onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
                 >
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{faq.question}</CardTitle>
+                    <div className="flex items-center gap-3">
+                      <CardTitle className="text-base">{faq.question}</CardTitle>
+                      <StatusBadge status={faq.status || "active"} />
+                    </div>
                     <ChevronDown
                       size={20}
                       className={`transition-transform ${expandedId === faq.id ? "rotate-180" : ""}`}
@@ -255,25 +303,41 @@ export default function FAQPage() {
                 {expandedId === faq.id && (
                   <CardContent className="space-y-4">
                     <p className="text-muted-foreground whitespace-pre-wrap">{faq.answer}</p>
-                    <div className="flex gap-2 justify-start pt-2 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(faq)}
-                        className="cursor-pointer shrink-0"
-                      >
-                        <Edit2 size={14} className="mr-2" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteClick(faq.id)}
-                        className="text-destructive cursor-pointer shrink-0"
-                      >
-                        <Trash2 size={14} className="mr-2" />
-                        Delete
-                      </Button>
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center gap-3">
+                        <Label htmlFor={`status-${faq.id}`} className="text-sm font-medium">
+                          Status:
+                        </Label>
+                        <Switch
+                          id={`status-${faq.id}`}
+                          checked={(faq.status || "active") === "active"}
+                          onCheckedChange={() => handleStatusToggle(faq.id, faq.status || "active")}
+                          disabled={isUpdatingStatus}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          {(faq.status || "active") === "active" ? "Active" : "Inactive"}
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(faq)}
+                          className="cursor-pointer shrink-0"
+                        >
+                          <Edit2 size={14} className="mr-2" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteClick(faq.id)}
+                          className="text-destructive cursor-pointer shrink-0"
+                        >
+                          <Trash2 size={14} className="mr-2" />
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 )}

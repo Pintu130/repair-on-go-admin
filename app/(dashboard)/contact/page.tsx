@@ -49,6 +49,7 @@ export default function ContactPage() {
 
   // Extract contacts from API response or use empty array
   const contacts = data?.contacts || [];
+  console.log("🚀 ~ ContactPage ~ contacts:", contacts)
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);

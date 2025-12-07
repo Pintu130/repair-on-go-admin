@@ -5,82 +5,29 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Trash2, Star, Edit2, Plus, X, MessageSquare, CheckCircle, Eye } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Trash2, Star, Edit2, Plus, X, MessageSquare, CheckCircle, Eye, Loader2 } from "lucide-react"
 import { SearchInput } from "@/components/common/search-input"
 import { SelectFilter } from "@/components/common/select-filter"
 import { InfoCard } from "@/components/common/info-card"
 import { ReviewModal } from "@/components/common/review-modal"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
-
-interface Review {
-  id: string
-  customer: string
-  product: string
-  rating: number
-  comment: string
-  status: "approved" | "pending"
-  date: string
-}
-
-const mockReviews: Review[] = [
-  {
-    id: "R001",
-    customer: "John Smith",
-    product: "Plumbing Repair",
-    rating: 5,
-    comment: "Excellent service, very professional",
-    status: "approved",
-    date: "2024-02-15",
-  },
-  {
-    id: "R002",
-    customer: "Sarah Johnson",
-    product: "Electrical Wiring",
-    rating: 4,
-    comment: "Good work, arrived on time",
-    status: "approved",
-    date: "2024-02-14",
-  },
-  {
-    id: "R003",
-    customer: "Michael Brown",
-    product: "Carpentry Work",
-    rating: 5,
-    comment: "Amazing quality and attention to detail",
-    status: "approved",
-    date: "2024-02-13",
-  },
-  {
-    id: "R004",
-    customer: "Emily Davis",
-    product: "Painting",
-    rating: 3,
-    comment: "Decent job but could be better",
-    status: "pending",
-    date: "2024-02-12",
-  },
-  {
-    id: "R005",
-    customer: "David Wilson",
-    product: "Plumbing Repair",
-    rating: 4,
-    comment: "Professional and courteous",
-    status: "approved",
-    date: "2024-02-11",
-  },
-  {
-    id: "R006",
-    customer: "Jessica Miller",
-    product: "Electrical Installation",
-    rating: 5,
-    comment: "Outstanding service!",
-    status: "pending",
-    date: "2024-02-10",
-  },
-]
+import { useGetReviewsQuery, useCreateReviewMutation, useUpdateReviewMutation, useDeleteReviewMutation, useUpdateReviewStatusMutation, type Review } from "@/lib/store/api/reviewsApi"
+import { useToast } from "@/hooks/use-toast"
 
 export default function ReviewsPage() {
+  // Fetch reviews from Firebase
+  const { data, isLoading, isError, error, refetch } = useGetReviewsQuery()
+  console.log("2222222222222222222", data)
+  const [createReview, { isLoading: isCreating }] = useCreateReviewMutation()
+  const [updateReview, { isLoading: isUpdating }] = useUpdateReviewMutation()
+  const [deleteReview, { isLoading: isDeleting }] = useDeleteReviewMutation()
+  const [updateReviewStatus, { isLoading: isUpdatingStatus }] = useUpdateReviewStatusMutation()
+  const { toast } = useToast()
+
+  // Extract reviews from API response or use empty array
+  const reviews = data?.reviews || []
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
@@ -97,7 +44,6 @@ export default function ReviewsPage() {
     setRatingFilter("all")
     setCurrentPage(1)
   }
-  const [reviews, setReviews] = useState(mockReviews)
   const [isOpen, setIsOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -108,6 +54,7 @@ export default function ReviewsPage() {
     rating: 5,
     comment: "",
     status: "pending" as "approved" | "pending",
+    city: "",
   })
 
   const filtered = useMemo(() => {
@@ -121,11 +68,19 @@ export default function ReviewsPage() {
     })
   }, [searchTerm, statusFilter, ratingFilter, reviews])
 
-  const stats = {
-    totalReviews: reviews.length,
-    averageRating: (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1),
-    approvedCount: reviews.filter((r) => r.status === "approved").length,
-  }
+  const stats = useMemo(() => {
+    const totalReviews = reviews.length
+    const averageRating = totalReviews > 0 
+      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+      : "0.0"
+    const approvedCount = reviews.filter((r) => r.status === "approved").length
+    
+    return {
+      totalReviews,
+      averageRating,
+      approvedCount,
+    }
+  }, [reviews])
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -138,43 +93,127 @@ export default function ReviewsPage() {
       rating: review.rating,
       comment: review.comment,
       status: review.status,
+      city: review.city || "",
     })
     setIsOpen(true)
   }
 
-  const handleSave = () => {
-    if (!formData.customer || !formData.comment) return
-
-    if (editingId) {
-      setReviews(
-        reviews.map((r) =>
-          r.id === editingId ? { ...r, ...formData, id: editingId, date: new Date().toISOString().split("T")[0] } : r,
-        ),
-      )
-    } else {
-      const newReview: Review = {
-        ...formData,
-        id: `R${Date.now().toString().slice(-3)}`,
-        date: new Date().toISOString().split("T")[0],
-      }
-      setReviews([...reviews, newReview])
+  const handleSave = async () => {
+    if (!formData.customer || !formData.comment) {
+      toast({
+        title: "Validation Error",
+        description: "Customer name and comment are required.",
+        variant: "destructive",
+      })
+      return
     }
-    setIsOpen(false)
+
+    try {
+      if (editingId) {
+        await updateReview({
+          reviewId: editingId,
+          reviewData: {
+            ...formData,
+            date: new Date().toISOString().split("T")[0],
+          },
+        }).unwrap()
+
+        toast({
+          title: "Review Updated Successfully! ✅",
+          description: "Review has been updated successfully.",
+        })
+      } else {
+        await createReview({
+          ...formData,
+          date: new Date().toISOString().split("T")[0],
+        }).unwrap()
+
+        toast({
+          title: "Review Created Successfully! 🎉",
+          description: "Review has been added successfully.",
+        })
+      }
+
+      setIsOpen(false)
+      setEditingId(null)
+      setFormData({ customer: "", product: "", rating: 5, comment: "", status: "pending", city: "" })
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error saving review:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to save review. Please try again."
+
+      toast({
+        title: "Failed to Save Review",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDeleteClick = (id: string) => {
     setDeletingId(id)
   }
 
-  const handleDeleteConfirm = () => {
-    if (deletingId) {
-      setReviews(reviews.filter((r) => r.id !== deletingId))
+  const handleDeleteConfirm = async () => {
+    if (!deletingId) return
+
+    try {
+      await deleteReview(deletingId).unwrap()
+
+      toast({
+        title: "Review Deleted Successfully! ✅",
+        description: "Review has been deleted successfully.",
+      })
+
       setDeletingId(null)
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error deleting review:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to delete review. Please try again."
+
+      toast({
+        title: "Failed to Delete Review",
+        description: errorMessage,
+        variant: "destructive",
+      })
     }
   }
 
-  const handleApprove = (id: string) => {
-    setReviews(reviews.map((r) => (r.id === id ? { ...r, status: "approved" as const } : r)))
+  const handleApprove = async (id: string) => {
+    try {
+      await updateReviewStatus({ reviewId: id, status: "approved" }).unwrap()
+
+      toast({
+        title: "Review Approved Successfully! ✅",
+        description: "Review status has been updated to approved.",
+      })
+
+      refetch()
+    } catch (error: any) {
+      console.error("❌ Error approving review:", error)
+
+      const errorMessage =
+        error?.data?.error ||
+        error?.data?.data ||
+        error?.message ||
+        "Failed to approve review. Please try again."
+
+      toast({
+        title: "Failed to Approve Review",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
   }
 
   const renderStars = (rating: number) => {
@@ -198,6 +237,9 @@ export default function ReviewsPage() {
           <h1 className="text-3xl font-bold text-balance">Reviews & Ratings</h1>
           <p className="text-muted-foreground">Manage customer reviews and ratings</p>
         </div>
+        <Button onClick={() => setIsOpen(true)} className="cursor-pointer">
+          <Plus size={16} className="mr-2" /> Add Review
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -311,84 +353,134 @@ export default function ReviewsPage() {
 
       <Card>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border">
-                <tr>
-                  <th className="text-left py-3 px-4 font-semibold">Customer</th>
-                  <th className="text-left py-3 px-4 font-semibold">Category</th>
-                  <th className="text-left py-3 px-4 font-semibold">Rating</th>
-                  <th className="text-left py-3 px-4 font-semibold">Comment</th>
-                  <th className="text-left py-3 px-4 font-semibold">Date</th>
-                  <th className="text-left py-3 px-4 font-semibold">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedData.map((review) => (
-                  <tr key={review.id} className="border-b border-border hover:bg-muted/50">
-                    <td className="py-3 px-4">
-                      <p className="font-semibold">{review.customer}</p>
-                    </td>
-                    <td className="py-3 px-4">
-                      <p className="text-muted-foreground">{review.product}</p>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1">
-                        {renderStars(review.rating)}
-                        <span className="text-xs text-muted-foreground ml-1">({review.rating})</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setViewingComment({ comment: review.comment, customer: review.customer })}
-                          className="cursor-pointer shrink-0 h-7 px-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-primary-foreground"
-                        >
-                          Show
-                        </Button>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <p className="text-muted-foreground">{review.date}</p>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge variant={review.status === "approved" ? "default" : "secondary"}>
-                        {review.status === "approved" ? "Approved" : "Pending"}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEdit(review)} className="cursor-pointer shrink-0">
-                          <Edit2 size={14} />
-                        </Button>
-                        {review.status === "pending" && (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : isError ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-destructive">Error loading reviews. Please try again.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border">
+                  <tr>
+                    <th className="text-left py-3 px-4 font-semibold">Customer</th>
+                    <th className="text-left py-3 px-4 font-semibold">City</th>
+                    <th className="text-left py-3 px-4 font-semibold">Category</th>
+                    <th className="text-left py-3 px-4 font-semibold">Rating</th>
+                    <th className="text-left py-3 px-4 font-semibold">Comment</th>
+                    <th className="text-left py-3 px-4 font-semibold">Date</th>
+                    <th className="text-left py-3 px-4 font-semibold">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedData.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                        No reviews found. Click "Add Review" to create your first review.
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedData.map((review) => {
+                  const fullName =
+                    review.customerFirstName && review.customerLastName
+                      ? `${review.customerFirstName} ${review.customerLastName}`
+                      : review.customer
+
+                  const getInitials = () => {
+                    if (review.customerFirstName && review.customerLastName) {
+                      return `${review.customerFirstName.charAt(0)}${review.customerLastName.charAt(0)}`.toUpperCase()
+                    }
+                    return review.customer.charAt(0).toUpperCase()
+                  }
+
+                  return (
+                    <tr key={review.id} className="border-b border-border hover:bg-muted/50">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-8 w-8 shrink-0">
+                            {review.customerAvatar && (
+                              <AvatarImage src={review.customerAvatar} alt={fullName} />
+                            )}
+                            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                              {getInitials()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium truncate capitalize">{fullName}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="text-muted-foreground truncate">{review.city || "—"}</p>
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="text-muted-foreground">{review.product}</p>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-1">
+                          {renderStars(review.rating)}
+                          <span className="text-xs text-muted-foreground ml-1">({review.rating})</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleApprove(review.id)}
-                            className="cursor-pointer shrink-0"
+                            onClick={() => setViewingComment({ comment: review.comment, customer: review.customer })}
+                            className="cursor-pointer shrink-0 h-7 px-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-primary-foreground"
                           >
-                            <CheckCircle size={14} />
+                            Show
                           </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDeleteClick(review.id)}
-                          className="text-destructive cursor-pointer shrink-0"
-                        >
-                          <Trash2 size={14} />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="text-muted-foreground">{review.date}</p>
+                      </td>
+                      <td className="py-3 px-4">
+                        <Badge variant={review.status === "approved" ? "default" : "secondary"}>
+                          {review.status === "approved" ? "Approved" : "Pending"}
+                        </Badge>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(review)} className="cursor-pointer shrink-0">
+                            <Edit2 size={14} />
+                          </Button>
+                          {review.status === "pending" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleApprove(review.id)}
+                              className="cursor-pointer shrink-0"
+                              disabled={isUpdatingStatus}
+                            >
+                              {isUpdatingStatus ? (
+                                <Loader2 size={14} className="animate-spin" />
+                              ) : (
+                                <CheckCircle size={14} />
+                              )}
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteClick(review.id)}
+                            className="text-destructive cursor-pointer shrink-0"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </td>
+                      </tr>
+                    )
+                  }))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Pagination */}
           {totalPages > 0 && (
@@ -410,7 +502,7 @@ export default function ReviewsPage() {
           if (!open) {
             setIsOpen(false)
             setEditingId(null)
-            setFormData({ customer: "", product: "", rating: 5, comment: "", status: "pending" })
+            setFormData({ customer: "", product: "", rating: 5, comment: "", status: "pending", city: "" })
           } else {
             setIsOpen(open)
           }
@@ -421,7 +513,7 @@ export default function ReviewsPage() {
         onCancel={() => {
           setIsOpen(false)
           setEditingId(null)
-          setFormData({ customer: "", product: "", rating: 5, comment: "", status: "pending" })
+          setFormData({ customer: "", product: "", rating: 5, comment: "", status: "pending", city: "" })
         }}
         isEditing={!!editingId}
       />
@@ -440,6 +532,7 @@ export default function ReviewsPage() {
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
+        isLoading={isDeleting}
       />
 
       {/* Comment View Dialog */}

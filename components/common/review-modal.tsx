@@ -13,6 +13,7 @@ interface ReviewFormData {
   rating: number
   comment: string
   status: "approved" | "pending"
+  city: string
 }
 
 interface ReviewModalProps {
@@ -69,6 +70,17 @@ export function ReviewModal({
               placeholder="Product/Service"
               value={formData.product}
               onChange={(e) => onFormDataChange({ ...formData, product: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="city">City</Label>
+            <Input
+              id="city"
+              type="text"
+              placeholder="City"
+              value={formData.city || ""}
+              onChange={(e) => onFormDataChange({ ...formData, city: e.target.value })}
             />
           </div>
 
