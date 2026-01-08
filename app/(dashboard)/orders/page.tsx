@@ -5,8 +5,8 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, X, Eye, CheckCircle, Package, Wrench, Truck, Smartphone, Banknote, CreditCard } from "lucide-react"
-import { mockOrders, type Order } from "@/data/orders"
+import { Trash2, X, Eye, CheckCircle, Package, Wrench, Truck, Smartphone, Banknote, CreditCard, Loader2 } from "lucide-react"
+import { type Order } from "@/data/orders"
 import { SearchInput } from "@/components/common/search-input"
 import { SelectFilter } from "@/components/common/select-filter"
 import { Pagination } from "@/components/common/pagination"
@@ -14,6 +14,8 @@ import { OrderStatusBadge, statusLabels } from "@/components/common/order-status
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
 import { InfoCard } from "@/components/common/info-card"
 import { DateRangeFilter } from "@/components/common/date-range-filter"
+import { useGetBookingsQuery } from "@/lib/store/api/bookingsApi"
+import { OrdersTableSkeleton } from "@/components/common/orders-table-skeleton"
 
 interface OrderItem extends Order {}
 
@@ -24,9 +26,14 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | Order["status"]>("all")
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all")
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date } | undefined>(undefined)
-  const [orders, setOrders] = useState<OrderItem[]>(mockOrders)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  // Fetch bookings from Firebase
+  const { data: bookingsData, isLoading, error, refetch } = useGetBookingsQuery()
+  
+  const orders: OrderItem[] = bookingsData?.bookings || []
+  console.log("🚀 ~ OrdersPage ~ orders:111", orders)
 
   const categories = ["all", ...new Set(orders.map((o) => o.category))]
   const statuses = ["all", "booked", "confirmed", "picked", "serviceCenter", "repair", "outForDelivery", "delivered"] as const
@@ -90,9 +97,31 @@ export default function OrdersPage() {
 
   const handleDeleteConfirm = () => {
     if (deleteId) {
-      setOrders(orders.filter((o) => o.id !== deleteId))
+      // TODO: Implement delete booking API call
+      // For now, just close the modal
       setDeleteId(null)
+      // Optionally refetch data after delete
+      // refetch()
     }
+  }
+
+  // Show loading state with skeleton
+  if (isLoading) {
+    return <OrdersTableSkeleton />
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-destructive">Error loading orders</p>
+          <Button onClick={() => refetch()} variant="outline">
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -243,14 +272,21 @@ export default function OrdersPage() {
                   <th className="text-left py-3 px-4 font-semibold">Payment Status</th>
                   <th className="text-left py-3 px-4 font-semibold">Payment Method</th>
                   <th className="text-left py-3 px-4 font-semibold">Order Date</th>
-                  <th className="text-left py-3 px-4 font-semibold">Status</th>
+                  {/* <th className="text-left py-3 px-4 font-semibold">Status</th> */}
                   <th className="text-left py-3 px-4 font-semibold">Action</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedData.map((order) => (
+                {paginatedData.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                      No orders found
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedData.map((order) => (
                   <tr key={order.id} className="border-b border-border hover:bg-muted/50">
-                    <td className="py-3 px-4 font-mono text-xs font-semibold">{order.id}</td>
+                    <td className="py-3 px-4 font-mono text-xs font-semibold">{order.bookingId}</td>
                     <td className="py-3 px-4">{order.customer}</td>
                     <td className="py-3 px-4">{order.mobileNumber || "N/A"}</td>
                     <td className="py-3 px-4">{order.category}</td>
@@ -289,9 +325,6 @@ export default function OrdersPage() {
                           })
                         : "N/A"}
                     </td>
-                    <td className="py-3 px-4">
-                      <OrderStatusBadge status={order.status} />
-                    </td>
                     <td className="py-3 px-4 flex gap-2">
                       <Button
                         variant="outline"
@@ -308,7 +341,8 @@ export default function OrdersPage() {
                       </Link>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

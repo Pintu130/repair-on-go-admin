@@ -26,8 +26,8 @@ export function CustomerSubmission({ images, audioRecording, textDescription }: 
     "/category/download (19).jpg",
   ]
 
-  const defaultAudio = audioRecording || "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-  const defaultText = textDescription || "The device is not working properly. There seems to be an issue with the motor and the blades need replacement."
+  const defaultAudio = audioRecording || "Audio not available"
+  const defaultText = textDescription || "Description not available"
 
   return (
     <>

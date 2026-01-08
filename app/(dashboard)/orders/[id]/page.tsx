@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, User, Folder, IndianRupee, Smartphone, Banknote, CreditCard, Settings2, FileText, DollarSign } from "lucide-react"
+import { ArrowLeft, User, Folder, IndianRupee, Smartphone, Banknote, CreditCard, Settings2, FileText, DollarSign, Loader2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -19,11 +19,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockOrders, type Order } from "@/data/orders"
+import { type Order } from "@/data/orders"
 import { InfoCard } from "@/components/common/info-card"
 import { OrderHeaderBadges } from "@/components/common/order-header-badges"
 import { OrderTimeline } from "@/components/common/order-timeline"
 import { CustomerSubmission } from "@/components/common/customer-submission"
+import { useGetBookingByIdQuery } from "@/lib/store/api/bookingsApi"
 
 const statusSteps = ["booked", "confirmed", "picked", "serviceCenter", "repair", "outForDelivery", "delivered"]
 const statusLabels = {
@@ -39,16 +40,50 @@ const statusLabels = {
 
 export default function OrderDetailPage() {
   const params = useParams()
-  const initialOrder = mockOrders.find((o) => o.id === params.id)
-  const [order, setOrder] = useState<Order | undefined>(initialOrder)
+  const bookingId = params.id as string
+  
+  // Fetch booking from Firebase
+  const { data: bookingData, isLoading, error, refetch } = useGetBookingByIdQuery(bookingId)
+  
+  const [order, setOrder] = useState<Order | undefined>(bookingData?.booking || undefined)
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [serviceReason, setServiceReason] = useState("")
   const [serviceAmount, setServiceAmount] = useState("")
 
-  if (!order) {
+  // Update order when data is fetched
+  useEffect(() => {
+    if (bookingData?.booking) {
+      setOrder(bookingData.booking)
+    }
+  }, [bookingData])
+
+  // Show loading state
+  if (isLoading) {
     return (
-      <div className="text-center py-12">
-        <p className="text-lg font-semibold">Order not found</p>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading order details...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (error || !order) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <p className="text-destructive text-lg font-semibold">Order not found</p>
+          <div className="flex gap-2">
+            <Button onClick={() => refetch()} variant="outline">
+              Retry
+            </Button>
+            <Link href="/orders">
+              <Button variant="outline">Back to Orders</Button>
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
@@ -149,7 +184,7 @@ export default function OrderDetailPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{order.id}</h1>
+            <h1 className="text-2xl font-bold tracking-tight">{order.bookingId || order.id}</h1>
             <p className="text-muted-foreground text-sm">Order Details</p>
           </div>
         </div>
