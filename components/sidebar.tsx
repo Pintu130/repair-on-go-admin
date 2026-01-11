@@ -27,6 +27,7 @@ import {
   UsersRound,
   Sparkles,
   MessageCircle,
+  FileSearch,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -77,6 +78,7 @@ export function Sidebar() {
       icon: Globe,
       children: [
         { label: "Categories", href: "/categories", icon: FolderTree },
+        { label: "Category Requests", href: "/category-requests", icon: FileSearch },
         { label: "SEO", href: "/seo", icon: Search },
         { label: "Web Settings", href: "/web-settings", icon: Settings },
       ],

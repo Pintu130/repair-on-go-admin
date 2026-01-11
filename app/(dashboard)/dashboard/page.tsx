@@ -16,11 +16,12 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
-import { mockOrders } from "@/data/orders"
+import { type Order } from "@/data/orders"
 import { useState } from "react"
 import { Clock, TrendingUp, Users, Zap } from "lucide-react"
 import { calculateStats } from "@/utils/stats" // Assuming this function is defined elsewhere
 import { StatCard } from "@/components/stat-card"
+import { useGetBookingsQuery } from "@/lib/store/api/bookingsApi"
 
 // Generate Revenue Trend data based on time period
 const generateChartData = (period: "week" | "month" | "year") => {
@@ -134,8 +135,11 @@ const generateEmployeeData = (period: "week" | "month" | "year") => {
 
 const COLORS = ["#ED2C2C", "#3B82F6", "#10B981", "#F59E0B"]
 
-const getLatestBookings = () => {
-  return [...mockOrders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
+const getLatestBookings = (orders: Order[]) => {
+  if (!orders || !Array.isArray(orders)) {
+    return []
+  }
+  return [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
 }
 
 const getStatusColor = (status: string) => {
@@ -151,11 +155,16 @@ const getStatusColor = (status: string) => {
 
 export default function DashboardPage() {
   const [timePeriod, setTimePeriod] = useState<"week" | "month" | "year">("month")
+  
+  // Fetch bookings from API
+  const { data: bookingsData, isLoading } = useGetBookingsQuery()
+  const orders: Order[] = bookingsData?.bookings || []
+  
   const chartData = generateChartData(timePeriod)
   const categoryData = generateCategoryData(timePeriod)
   const statusData = generateStatusData(timePeriod)
   const employeeData = generateEmployeeData(timePeriod)
-  const stats = calculateStats(mockOrders) // Assuming this function calculates totalRevenue and pendingAmount
+  const stats = calculateStats(orders) // Calculate stats from API data
 
   return (
     <div className="space-y-6">
@@ -169,7 +178,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           title="Total Revenue"
-          value={`₹${stats.totalRevenue}`}
+          value={`₹${stats.totalRevenue.toLocaleString("en-IN")}`}
           subtitle="+20.1% from last month"
           subtitleClassName="text-xs text-green-600"
           icon={<TrendingUp className="text-primary" size={18} />}
@@ -300,7 +309,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {getLatestBookings().map((booking) => (
+            {getLatestBookings(orders).map((booking) => (
               <div
                 key={booking.id}
                 className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors"
