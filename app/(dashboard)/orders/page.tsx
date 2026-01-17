@@ -83,6 +83,7 @@ export default function OrdersPage() {
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  console.log("🚀 ~ OrdersPage ~ paginatedData:--------------", paginatedData)
 
   // Calculate stats
   const totalVerify = orders.filter((o) => o.status === "booked").length
@@ -272,14 +273,14 @@ export default function OrdersPage() {
                   <th className="text-left py-3 px-4 font-semibold">Payment Status</th>
                   <th className="text-left py-3 px-4 font-semibold">Payment Method</th>
                   <th className="text-left py-3 px-4 font-semibold">Order Date</th>
-                  {/* <th className="text-left py-3 px-4 font-semibold">Status</th> */}
+                  <th className="text-left py-3 px-4 font-semibold">Order Status</th>
                   <th className="text-left py-3 px-4 font-semibold">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                    <td colSpan={10} className="py-8 text-center text-muted-foreground">
                       No orders found
                     </td>
                   </tr>
@@ -324,6 +325,9 @@ export default function OrdersPage() {
                             year: "numeric",
                           })
                         : "N/A"}
+                    </td>
+                    <td className="py-3 px-4">
+                      <OrderStatusBadge status={order.status} />
                     </td>
                     <td className="py-3 px-4 flex gap-2">
                       <Button

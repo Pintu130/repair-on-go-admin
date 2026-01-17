@@ -22,7 +22,7 @@ const statusColors: Record<OrderStatus, string> = {
 }
 
 export const statusLabels: Record<OrderStatus, string> = {
-  booked: "Verify",
+  booked: "booked",
   confirmed: "Confirmed",
   picked: "Pickup",
   serviceCenter: "Service Center",
@@ -34,7 +34,7 @@ export const statusLabels: Record<OrderStatus, string> = {
 
 export function OrderStatusBadge({ status, className }: OrderStatusBadgeProps) {
   return (
-    <Badge className={cn(statusColors[status], className)}>
+    <Badge className={cn(statusColors[status], className, "capitalize")}>
       {statusLabels[status]}
     </Badge>
   )

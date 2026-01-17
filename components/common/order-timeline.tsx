@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Wrench, Package, Home, X } from "lucide-react"
+import { formatDate } from "@/lib/utils/date"
 
 interface OrderTimelineProps {
   statusSteps: string[]
@@ -11,6 +12,11 @@ interface OrderTimelineProps {
   orderDate?: string
   isCancelled?: boolean
   cancelledAtStatus?: string
+  order?: {
+    status: string
+    date?: string
+    updatedAt?: string
+  }
 }
 
 // Get icon for each status step
@@ -42,13 +48,24 @@ const getDisplayStatus = (step: string, statusLabels: Record<string, string>): s
   return statusLabels[step] || step
 }
 
-export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, orderDate, isCancelled = false, cancelledAtStatus }: OrderTimelineProps) {
-  // Calculate dates for each step
-  const getStepDate = (index: number): string => {
-    if (!orderDate) return ""
-    const baseDate = new Date(orderDate)
-    baseDate.setDate(baseDate.getDate() + index)
-    return baseDate.toISOString().split("T")[0]
+export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, orderDate, isCancelled = false, cancelledAtStatus, order }: OrderTimelineProps) {
+  // Get date for each step
+  const getStepDate = (index: number, step: string, isCompleted: boolean): string => {
+    // If step is not completed, don't show date
+    if (!isCompleted) return ""
+    
+    // For "booked" status, always use order date (original booking date)
+    if (step === "booked" && orderDate) {
+      return orderDate
+    }
+    
+    // For all other completed statuses, use current date/time (real-time when status is updated)
+    if (isCompleted) {
+      const now = new Date()
+      return now.toISOString().split("T")[0]
+    }
+    
+    return ""
   }
 
   // If cancelled, find the last completed status index before cancellation
@@ -56,43 +73,58 @@ export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, o
   const cancelledStatusIndex = isCancelled && cancelledAtStatus
     ? statusSteps.indexOf(cancelledAtStatus)
     : -1
+  
+  // Current status is considered completed, so lastCompletedIndex includes current status
   const lastCompletedIndex = isCancelled && cancelledStatusIndex >= 0
     ? cancelledStatusIndex
     : currentStatusIndex
 
   // Prepare tracking steps data
   const trackingSteps = statusSteps.map((step, index) => {
-    const isCompleted = index < lastCompletedIndex
-    const isCurrent = !isCancelled && index === currentStatusIndex
+    // Current status is considered completed (green), next status is pending
+    // Step is completed if index is less than or equal to lastCompletedIndex
+    const isCompleted = index <= lastCompletedIndex && lastCompletedIndex >= 0
+    // Don't show as "current" since current status is treated as completed
+    const isCurrent = false
     // Only the status where it was cancelled should be marked as cancelled
     const isStepCancelled = isCancelled && cancelledStatusIndex >= 0 && index === cancelledStatusIndex
-    const showDetails = (isCompleted || isCurrent || isStepCancelled) && !(isCancelled && index > lastCompletedIndex)
+    const showDetails = (isCompleted || isStepCancelled) && !(isCancelled && index > lastCompletedIndex)
 
     return {
       step,
       isCompleted,
-      isCurrent,
+      isCurrent: false, // Don't show as current since current status is completed
       isCancelled: isStepCancelled,
       tracking: showDetails
         ? {
-            date: getStepDate(index),
+            date: getStepDate(index, step, isCompleted),
             description: getStepDescription(step),
           }
         : undefined,
     }
   })
 
-  // Calculate progress for the line - stop at cancelled status (not including it)
+  // Calculate progress for the line - current status is included as completed
+  // If cancelled, don't include the cancelled step in progress
   const completedCount = isCancelled && lastCompletedIndex >= 0 
     ? lastCompletedIndex  // Don't include the cancelled step in progress
     : lastCompletedIndex >= 0 
-    ? lastCompletedIndex + 1 
+    ? lastCompletedIndex + 1  // Include current status (which is completed)
     : 0
   const totalSteps = statusSteps.length
-  const startPosition = 12.5 // First step center (approximately)
-  const endPosition = 87.5 // Last step center (approximately)
-  const lineWidth = endPosition - startPosition // 75%
-  const progressPercent = completedCount > 0 ? ((completedCount - 1) / (totalSteps - 1)) * lineWidth : 0
+  
+  // Calculate exact positions: icons are flex-1, so each takes equal space
+  // First icon center = (100% / totalSteps) / 2
+  // Last icon center = 100% - (100% / totalSteps) / 2
+  const iconWidthPercent = 100 / totalSteps
+  const startPosition = iconWidthPercent / 2 // First icon center
+  const endPosition = 100 - (iconWidthPercent / 2) // Last icon center
+  const lineWidth = endPosition - startPosition
+  
+  // Calculate progress: from first icon center to current icon center
+  const progressPercent = completedCount > 0 
+    ? ((completedCount - 1) / (totalSteps - 1)) * lineWidth 
+    : 0
 
   return (
     <Card>
@@ -104,8 +136,9 @@ export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, o
           {/* Progress Line - Only between first and last step centers */}
           <>
             {/* Background line - from first to last step center only */}
+            {/* Icon center: p-2 (8px) + w-8/2 (16px) = 24px mobile, p-2 (8px) + w-10/2 (20px) = 28px desktop */}
             <div
-              className="absolute top-4 sm:top-5 h-0.5 bg-gray-200"
+              className="absolute h-0.5 bg-gray-200 top-[24px] sm:top-[28px]"
               style={{
                 left: `${startPosition}%`,
                 width: `${lineWidth}%`,
@@ -114,7 +147,7 @@ export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, o
             {/* Progress line - from first step to current step (or last completed if cancelled) */}
             {progressPercent > 0 && (
               <div
-                className={`absolute top-4 sm:top-5 h-0.5 transition-all duration-300 ${
+                className={`absolute h-0.5 transition-all duration-300 top-[24px] sm:top-[28px] ${
                   isCancelled ? "bg-red-500" : "bg-green-500"
                 }`}
                 style={{
@@ -131,7 +164,7 @@ export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, o
               const { step, isCompleted, isCurrent, isCancelled: isStepCancelled, tracking } = stepData
 
               return (
-                <div key={step} className="flex flex-col items-center flex-1 relative min-w-0">
+                <div key={step} className="flex flex-col items-center flex-1 relative min-w-0 p-2">
                   {/* Icon Circle */}
                   <div
                     className={`relative z-10 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shrink-0 mb-2 ${
@@ -183,7 +216,9 @@ export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, o
                     </div>
                     {tracking && (
                       <>
-                        <p className="text-[10px] sm:text-xs text-gray-500 mb-0.5 sm:mb-1">{tracking.date}</p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 mb-0.5 sm:mb-1">
+                          {formatDate(tracking.date)}
+                        </p>
                         <p className="text-[10px] sm:text-xs text-gray-600 line-clamp-2 hidden sm:block">
                           {tracking.description}
                         </p>

@@ -25,6 +25,7 @@ import { OrderHeaderBadges } from "@/components/common/order-header-badges"
 import { OrderTimeline } from "@/components/common/order-timeline"
 import { CustomerSubmission } from "@/components/common/customer-submission"
 import { useGetBookingByIdQuery } from "@/lib/store/api/bookingsApi"
+import { OrderDetailSkeleton } from "@/components/common/order-detail-skeleton"
 
 const statusSteps = ["booked", "confirmed", "picked", "serviceCenter", "repair", "outForDelivery", "delivered"]
 const statusLabels = {
@@ -59,14 +60,7 @@ export default function OrderDetailPage() {
 
   // Show loading state
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading order details...</p>
-        </div>
-      </div>
-    )
+    return <OrderDetailSkeleton />
   }
 
   // Show error state
@@ -97,15 +91,6 @@ export default function OrderDetailPage() {
     ? order.status 
     : "booked" // fallback
   const currentStatusIndex = statusSteps.indexOf(actualStatus)
-
-  // Get next status based on current status
-  const getNextStatus = (currentStatus: Order["status"]): Order["status"] | null => {
-    const currentIndex = statusSteps.indexOf(currentStatus)
-    if (currentIndex < statusSteps.length - 1) {
-      return statusSteps[currentIndex + 1] as Order["status"]
-    }
-    return null
-  }
 
   // Handle status update
   const handleStatusUpdate = (newStatus: Order["status"]) => {
@@ -171,24 +156,25 @@ export default function OrderDetailPage() {
     return actions
   }
 
-  const availableActions = getAvailableActions()
-
   return (
     <div className="space-y-6">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/orders">
-            <Button variant="ghost" size="icon" className="shrink-0 cursor-pointer">
-              <ArrowLeft size={20} />
-            </Button>
-          </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">{order.bookingId || order.id}</h1>
             <p className="text-muted-foreground text-sm">Order Details</p>
           </div>
+          <OrderHeaderBadges order={order} statusLabels={statusLabels} />
         </div>
-        <OrderHeaderBadges order={order} statusLabels={statusLabels} />
+        <div className="flex items-center gap-3">
+          <Link href="/orders">
+            <Button variant="outline" className="shrink-0 cursor-pointer">
+              <ArrowLeft size={20} className="mr-2" />
+              Back
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Key Information Cards */}
@@ -231,6 +217,7 @@ export default function OrderDetailPage() {
         orderDate={order.date}
         isCancelled={isCancelled}
         cancelledAtStatus={isCancelled ? order.cancelledAtStatus : undefined}
+        order={order}
       />
 
       {/* Quick Actions */}
@@ -263,6 +250,17 @@ export default function OrderDetailPage() {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* Show booked option only if current status is booked (for display), but make it non-selectable */}
+                    {order.status === "booked" && (
+                      <SelectItem 
+                        key="booked" 
+                        value="booked" 
+                        disabled
+                        className="cursor-not-allowed opacity-50"
+                      >
+                        {statusLabels["booked"]}
+                      </SelectItem>
+                    )}
                     {statusSteps
                       .filter((step) => step !== "booked")
                       .map((step) => (
