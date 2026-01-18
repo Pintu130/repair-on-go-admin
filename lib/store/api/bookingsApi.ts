@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
-import { collection, getDocs, doc, getDoc, Timestamp } from "firebase/firestore"
+import { collection, getDocs, doc, getDoc, updateDoc, Timestamp, deleteField } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
 import type { Order } from "@/data/orders"
 
@@ -122,6 +122,13 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
   // Get description
   const textDescription = docData.description || undefined
 
+  // Get service reason and amount
+  const serviceReason = docData.serviceReason || undefined
+  const serviceAmount = docData.serviceAmount || undefined
+
+  // Get cancelledAtStatus
+  const cancelledAtStatus = docData.cancelledAtStatus || undefined
+
   return {
     id: docId || "",
     bookingId: docData.bookingId || docId || "",
@@ -137,6 +144,9 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
     images: images.length > 0 ? images : undefined,
     audioRecording: audioRecording,
     textDescription: textDescription,
+    serviceReason: serviceReason,
+    serviceAmount: serviceAmount,
+    cancelledAtStatus: cancelledAtStatus,
   }
 }
 
@@ -247,11 +257,123 @@ export const bookingsApi = createApi({
       },
       providesTags: (result, error, bookingId) => [{ type: "Bookings", id: bookingId }],
     }),
+    updateBooking: builder.mutation<
+      { success: boolean; message: string },
+      { bookingId: string; updates: { status?: string; serviceReason?: string; serviceAmount?: number; cancelledAtStatus?: string } }
+    >({
+      queryFn: async ({ bookingId, updates }) => {
+        try {
+          console.log(`🔥 Updating booking ${bookingId} in Firestore...`, updates)
+
+          // Find the booking document by bookingId or document ID
+          const bookingsRef = collection(db, "bookings")
+          const querySnapshot = await getDocs(bookingsRef)
+          
+          let bookingDocRef = null
+          for (const docSnapshot of querySnapshot.docs) {
+            const docData = docSnapshot.data()
+            if (docData.bookingId === bookingId || docSnapshot.id === bookingId) {
+              bookingDocRef = doc(db, "bookings", docSnapshot.id)
+              break
+            }
+          }
+
+          // If not found by bookingId, try by document ID
+          if (!bookingDocRef) {
+            try {
+              const docRef = doc(db, "bookings", bookingId)
+              const docSnap = await getDoc(docRef)
+              if (docSnap.exists()) {
+                bookingDocRef = docRef
+              }
+            } catch (e) {
+              // Document doesn't exist
+            }
+          }
+
+          if (!bookingDocRef) {
+            return {
+              error: {
+                status: "CUSTOM_ERROR",
+                error: "Booking not found",
+                data: "Booking not found",
+              },
+            }
+          }
+
+          // Prepare update data - map status to Firebase format if needed
+          const updateData: any = {}
+          
+          if (updates.status !== undefined) {
+            // Map status to Firebase format
+            const statusMap: Record<string, string> = {
+              booked: "booked",
+              confirmed: "confirmed",
+              picked: "picked",
+              serviceCenter: "serviceCenter",
+              repair: "repair",
+              outForDelivery: "outForDelivery",
+              delivered: "delivered",
+              cancelled: "cancelled",
+            }
+            updateData.status = statusMap[updates.status] || updates.status
+          }
+
+          if (updates.serviceReason !== undefined) {
+            // If null/empty, delete the field; otherwise update it
+            if (updates.serviceReason === null || updates.serviceReason === "") {
+              updateData.serviceReason = deleteField()
+            } else {
+              updateData.serviceReason = updates.serviceReason
+            }
+          }
+
+          if (updates.serviceAmount !== undefined) {
+            // If null/0/empty, delete the field; otherwise update it
+            if (updates.serviceAmount === null || updates.serviceAmount === 0) {
+              updateData.serviceAmount = deleteField()
+            } else {
+              updateData.serviceAmount = updates.serviceAmount
+            }
+          }
+
+          if (updates.cancelledAtStatus !== undefined) {
+            updateData.cancelledAtStatus = updates.cancelledAtStatus
+          }
+
+          // Update the document
+          await updateDoc(bookingDocRef, updateData)
+
+          console.log(`✅ Successfully updated booking ${bookingId}`)
+
+          return {
+            data: {
+              success: true,
+              message: "Booking updated successfully",
+            },
+          }
+        } catch (error: any) {
+          console.error(`❌ Error updating booking ${bookingId}:`, error)
+          return {
+            error: {
+              status: "CUSTOM_ERROR",
+              error: error.message || "Failed to update booking",
+              data: error.message || "Failed to update booking",
+            },
+          }
+        }
+      },
+      invalidatesTags: (result, error, { bookingId }) => [
+        { type: "Bookings", id: bookingId },
+        { type: "Bookings" },
+      ],
+    }),
   }),
 })
 
 export const {
   useGetBookingsQuery,
   useGetBookingByIdQuery,
+  useUpdateBookingMutation,
 } = bookingsApi
 

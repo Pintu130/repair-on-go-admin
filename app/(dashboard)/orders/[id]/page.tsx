@@ -3,29 +3,19 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, User, Folder, IndianRupee, Smartphone, Banknote, CreditCard, Settings2, FileText, DollarSign, Loader2 } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowLeft, User, Folder, IndianRupee, Loader2 } from "lucide-react"
 import { type Order } from "@/data/orders"
 import { InfoCard } from "@/components/common/info-card"
 import { OrderHeaderBadges } from "@/components/common/order-header-badges"
 import { OrderTimeline } from "@/components/common/order-timeline"
 import { CustomerSubmission } from "@/components/common/customer-submission"
-import { useGetBookingByIdQuery } from "@/lib/store/api/bookingsApi"
+import { AdditionalInformation } from "@/components/common/additional-information"
+import { QuickActions } from "@/components/common/quick-actions"
+import { ServiceCenterModal } from "@/components/common/service-center-modal"
+import { useGetBookingByIdQuery, useUpdateBookingMutation } from "@/lib/store/api/bookingsApi"
 import { OrderDetailSkeleton } from "@/components/common/order-detail-skeleton"
+import { useToast } from "@/hooks/use-toast"
 
 const statusSteps = ["booked", "confirmed", "picked", "serviceCenter", "repair", "outForDelivery", "delivered"]
 const statusLabels = {
@@ -46,10 +36,13 @@ export default function OrderDetailPage() {
   // Fetch booking from Firebase
   const { data: bookingData, isLoading, error, refetch } = useGetBookingByIdQuery(bookingId)
   
+  // Update booking mutation
+  const [updateBooking, { isLoading: isSaving }] = useUpdateBookingMutation()
+  
+  const { toast } = useToast()
+  
   const [order, setOrder] = useState<Order | undefined>(bookingData?.booking || undefined)
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
-  const [serviceReason, setServiceReason] = useState("")
-  const [serviceAmount, setServiceAmount] = useState("")
 
   // Update order when data is fetched
   useEffect(() => {
@@ -115,11 +108,22 @@ export default function OrderDetailPage() {
 
   // Update status
   const updateStatus = (newStatus: Order["status"], reason?: string, amount?: number) => {
+    const serviceCenterIndex = statusSteps.indexOf("serviceCenter")
+    const newStatusIndex = statusSteps.indexOf(newStatus)
+    
+    // If changing from serviceCenter to a previous status, clear serviceReason and serviceAmount
+    const shouldClearServiceFields = order.status === "serviceCenter" && newStatusIndex < serviceCenterIndex
+    
     setOrder({
       ...order,
       status: newStatus,
       ...(reason && { serviceReason: reason }),
       ...(amount && { serviceAmount: amount }),
+      // Clear serviceReason and serviceAmount if moving to a previous status
+      ...(shouldClearServiceFields && {
+        serviceReason: undefined,
+        serviceAmount: undefined,
+      }),
     })
     // TODO: API call here
     // When API is ready, send email notification
@@ -127,16 +131,65 @@ export default function OrderDetailPage() {
   }
 
   // Handle Service Center form submit
-  const handleServiceCenterSubmit = () => {
-    if (!serviceReason.trim()) {
-      alert("Please enter the reason for service")
-      return
+  const handleServiceCenterSubmit = (data: { reason: string; amount?: number }) => {
+    updateStatus("serviceCenter", data.reason, data.amount)
+  }
+
+  // Handle save to Firebase
+  const handleSave = async () => {
+    if (!order) return
+
+    try {
+      const updates: {
+        status?: string
+        serviceReason?: string
+        serviceAmount?: number
+        cancelledAtStatus?: string
+      } = {
+        status: order.status,
+      }
+
+      // Check if status is before serviceCenter
+      const serviceCenterIndex = statusSteps.indexOf("serviceCenter")
+      const currentStatusIndex = statusSteps.indexOf(order.status)
+      const isBeforeServiceCenter = currentStatusIndex < serviceCenterIndex
+
+      // If status is serviceCenter, include serviceReason and serviceAmount
+      if (order.status === "serviceCenter") {
+        if (order.serviceReason) {
+          updates.serviceReason = order.serviceReason
+        }
+        if (order.serviceAmount !== undefined) {
+          updates.serviceAmount = order.serviceAmount
+        }
+      } else if (isBeforeServiceCenter) {
+        // If status is before serviceCenter, clear serviceReason and serviceAmount
+        updates.serviceReason = null as any
+        updates.serviceAmount = null as any
+      }
+
+      // If status is cancelled, include cancelledAtStatus
+      if (order.status === "cancelled" && order.cancelledAtStatus) {
+        updates.cancelledAtStatus = order.cancelledAtStatus
+      }
+
+      await updateBooking({
+        bookingId: order.bookingId || order.id,
+        updates,
+      }).unwrap()
+
+      // Refetch to get updated data
+      await refetch()
+      
+      // Show success toast message
+      toast({
+        title: "Success",
+        description: "Booking status updated successfully",
+      })
+    } catch (error: any) {
+      console.error("❌ Error updating booking:", error)
+      alert(error?.data || error?.message || "Failed to update booking. Please try again.")
     }
-    const amount = serviceAmount ? parseFloat(serviceAmount) : undefined
-    updateStatus("serviceCenter", serviceReason, amount)
-    setIsServiceModalOpen(false)
-    setServiceReason("")
-    setServiceAmount("")
   }
 
   // Get available actions based on current status
@@ -221,194 +274,24 @@ export default function OrderDetailPage() {
       />
 
       {/* Quick Actions */}
-      <Card className="border-2 shadow-lg">
-        <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-          <div className="flex items-center gap-2">
-            <Settings2 className="h-5 w-5 text-primary" />
-            <CardTitle className="text-xl font-bold">Quick Actions</CardTitle>
-          </div>
-          <p className="text-sm text-muted-foreground">Manage order operations efficiently</p>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Status Update Section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="h-1 w-1 rounded-full bg-primary"></div>
-              <Label className="text-sm font-semibold text-foreground">Update Status</Label>
-            </div>
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-              <div className="w-full lg:w-[280px]">
-                <Select
-                  value={order.status}
-                  onValueChange={(value) => {
-                    if (value !== order.status) {
-                      handleStatusUpdate(value as Order["status"])
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-full h-11">
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* Show booked option only if current status is booked (for display), but make it non-selectable */}
-                    {order.status === "booked" && (
-                      <SelectItem 
-                        key="booked" 
-                        value="booked" 
-                        disabled
-                        className="cursor-not-allowed opacity-50"
-                      >
-                        {statusLabels["booked"]}
-                      </SelectItem>
-                    )}
-                    {statusSteps
-                      .filter((step) => step !== "booked")
-                      .map((step) => (
-                        <SelectItem key={step} value={step} className="cursor-pointer">
-                          {statusLabels[step as keyof typeof statusLabels]}
-                        </SelectItem>
-                      ))}
-                    <SelectItem value="cancelled" className="cursor-pointer text-destructive">
-                      Cancel Order
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Service Center Info Display - Right Side */}
-              {order.status === "serviceCenter" && order.serviceReason && (
-                <div className="flex-1 w-full lg:w-auto p-4 rounded-lg bg-muted/50 border">
-                  <div className="flex flex-col lg:flex-row gap-4">
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <Label className="text-xs font-semibold text-muted-foreground">Service Reason</Label>
-                      </div>
-                      <p className="text-sm font-medium">{order.serviceReason}</p>
-                    </div>
-                    {order.serviceAmount && (
-                      <div className="lg:w-[180px] space-y-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <DollarSign className="h-4 w-4 text-primary" />
-                          <Label className="text-xs font-semibold text-muted-foreground">Service Amount</Label>
-                        </div>
-                        <p className="text-sm font-semibold">₹{order.serviceAmount.toLocaleString("en-IN")}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-        </CardContent>
-      </Card>
+      <QuickActions
+        order={order}
+        statusSteps={statusSteps}
+        statusLabels={statusLabels}
+        onStatusUpdate={handleStatusUpdate}
+        onSave={handleSave}
+        isSaving={isSaving}
+      />
 
       {/* Service Center Modal */}
-      <Dialog open={isServiceModalOpen} onOpenChange={setIsServiceModalOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Service Center Details</DialogTitle>
-            <DialogDescription>
-              Please provide the reason for service and optional service amount.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="reason">Service Reason *</Label>
-              <Textarea
-                id="reason"
-                placeholder="Describe the issue found in the product..."
-                value={serviceReason}
-                onChange={(e) => setServiceReason(e.target.value)}
-                rows={4}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="amount">Service Amount (Optional)</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="Enter service amount"
-                value={serviceAmount}
-                onChange={(e) => setServiceAmount(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsServiceModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleServiceCenterSubmit}>Update Status</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ServiceCenterModal
+        open={isServiceModalOpen}
+        onOpenChange={setIsServiceModalOpen}
+        onSubmit={handleServiceCenterSubmit}
+      />
 
       {/* Additional Information */}
-      <Card>
-        <CardHeader className="pb-4">
-          <CardTitle className="text-xl font-semibold">Additional Information</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">Complete order details</p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mobile Number</span>
-              <span className="text-base font-semibold">{order.mobileNumber || "N/A"}</span>
-            </div>
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Payment Method</span>
-              <div className="flex items-center gap-2">
-                {order.paymentMethod === "UPI" && <Smartphone size={16} className="text-blue-500" />}
-                {order.paymentMethod === "Cash" && <Banknote size={16} className="text-green-500" />}
-                {order.paymentMethod === "Card" && <CreditCard size={16} className="text-purple-500" />}
-                <span className="text-base font-semibold">{order.paymentMethod || "N/A"}</span>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Payment Status</span>
-              <Badge
-                className={`w-fit ${
-                  order.paymentStatus === "paid"
-                    ? "bg-green-500 hover:bg-green-600 text-white"
-                    : order.paymentStatus === "pending"
-                    ? "bg-yellow-500 hover:bg-yellow-600 text-white"
-                    : order.paymentStatus === "cash"
-                    ? "bg-blue-500 hover:bg-blue-600 text-white"
-                    : "bg-gray-500 hover:bg-gray-600 text-white"
-                }`}
-              >
-                {order.paymentStatus
-                  ? order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)
-                  : "Pending"}
-              </Badge>
-            </div>
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Order Date</span>
-              <span className="text-base font-semibold">
-                {order.date
-                  ? new Date(order.date).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })
-                  : "N/A"}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Order Status</span>
-              <Badge className="w-fit bg-primary text-primary-foreground">
-                {statusLabels[order.status as keyof typeof statusLabels] || order.status}
-              </Badge>
-            </div>
-            <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Service</span>
-              <span className="text-base font-semibold">{order.service || "N/A"}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
+      <AdditionalInformation order={order} statusLabels={statusLabels} />
     </div>
   )
 }

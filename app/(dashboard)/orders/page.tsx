@@ -83,7 +83,6 @@ export default function OrdersPage() {
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-  console.log("🚀 ~ OrdersPage ~ paginatedData:--------------", paginatedData)
 
   // Calculate stats
   const totalVerify = orders.filter((o) => o.status === "booked").length
