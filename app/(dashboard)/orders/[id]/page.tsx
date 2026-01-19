@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, User, Folder, IndianRupee, Loader2 } from "lucide-react"
+import { ArrowLeft, User, Folder, IndianRupee } from "lucide-react"
 import { type Order } from "@/data/orders"
 import { InfoCard } from "@/components/common/info-card"
 import { OrderHeaderBadges } from "@/components/common/order-header-badges"
@@ -153,12 +153,11 @@ export default function OrderDetailPage() {
       const serviceCenterIndex = statusSteps.indexOf("serviceCenter")
       const currentStatusIndex = statusSteps.indexOf(order.status)
       const isBeforeServiceCenter = currentStatusIndex < serviceCenterIndex
+      const isServiceCenterOrAfter = currentStatusIndex >= serviceCenterIndex
 
-      // If status is serviceCenter, include serviceReason and serviceAmount
-      if (order.status === "serviceCenter") {
-        if (order.serviceReason) {
-          updates.serviceReason = order.serviceReason
-        }
+      // If status is at or after serviceCenter, include serviceReason and serviceAmount
+      if (isServiceCenterOrAfter && order.serviceReason) {
+        updates.serviceReason = order.serviceReason
         if (order.serviceAmount !== undefined) {
           updates.serviceAmount = order.serviceAmount
         }
@@ -190,23 +189,6 @@ export default function OrderDetailPage() {
       console.error("❌ Error updating booking:", error)
       alert(error?.data || error?.message || "Failed to update booking. Please try again.")
     }
-  }
-
-  // Get available actions based on current status
-  const getAvailableActions = () => {
-    const actions = []
-    const currentIndex = statusSteps.indexOf(order.status)
-
-    if (currentIndex < statusSteps.length - 1) {
-      const nextStatus = statusSteps[currentIndex + 1] as Order["status"]
-      actions.push({
-        label: statusLabels[nextStatus],
-        status: nextStatus,
-        variant: nextStatus === "confirmed" ? "default" : "outline",
-      })
-    }
-
-    return actions
   }
 
   return (

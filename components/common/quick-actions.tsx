@@ -15,6 +15,7 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ order, statusSteps, statusLabels, onStatusUpdate, onSave, isSaving = false }: QuickActionsProps) {
+  console.log("🚀 ~ QuickActions ~ order:22222222", order)
   return (
     <Card className="border-2 shadow-lg">
       <CardHeader className="border-b bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
@@ -71,28 +72,34 @@ export function QuickActions({ order, statusSteps, statusLabels, onStatusUpdate,
             </div>
 
             {/* Service Center Info Display - Right Side */}
-            {order.status === "serviceCenter" && order.serviceReason && (
-              <div className="flex-1 w-full lg:w-auto p-4 rounded-lg bg-muted/50 border">
-                <div className="flex flex-col lg:flex-row gap-4">
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <FileText className="h-4 w-4 text-primary" />
-                      <Label className="text-xs font-semibold text-muted-foreground">Service Reason</Label>
-                    </div>
-                    <p className="text-sm font-medium">{order.serviceReason}</p>
-                  </div>
-                  {order.serviceAmount && (
-                    <div className="lg:w-[180px] space-y-1">
+            {(() => {
+              const serviceCenterIndex = statusSteps.indexOf("serviceCenter")
+              const currentStatusIndex = statusSteps.indexOf(order.status)
+              const isServiceCenterOrAfter = currentStatusIndex >= serviceCenterIndex && order.serviceReason
+              
+              return isServiceCenterOrAfter ? (
+                <div className="flex-1 w-full lg:w-auto p-4 rounded-lg bg-muted/50 border">
+                  <div className="flex flex-col lg:flex-row gap-4">
+                    <div className="flex-1 space-y-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <DollarSign className="h-4 w-4 text-primary" />
-                        <Label className="text-xs font-semibold text-muted-foreground">Service Amount</Label>
+                        <FileText className="h-4 w-4 text-primary" />
+                        <Label className="text-xs font-semibold text-muted-foreground">Service Reason</Label>
                       </div>
-                      <p className="text-sm font-semibold">₹{order.serviceAmount.toLocaleString("en-IN")}</p>
+                      <p className="text-sm font-medium">{order.serviceReason}</p>
                     </div>
-                  )}
+                    {order.serviceAmount && (
+                      <div className="lg:w-[180px] space-y-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <DollarSign className="h-4 w-4 text-primary" />
+                          <Label className="text-xs font-semibold text-muted-foreground">Service Amount</Label>
+                        </div>
+                        <p className="text-sm font-semibold">₹{order.serviceAmount.toLocaleString("en-IN")}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : null
+            })()}
           </div>
           <div className="flex justify-end">
             <Button

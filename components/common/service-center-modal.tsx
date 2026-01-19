@@ -72,10 +72,10 @@ export function ServiceCenterModal({ open, onOpenChange, onSubmit }: ServiceCent
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="cursor-pointer">
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>Update Status</Button>
+          <Button onClick={handleSubmit} className="cursor-pointer">Update Status</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
