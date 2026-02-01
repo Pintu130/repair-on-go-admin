@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Menu,
   X,
   LayoutDashboard,
   Users,
@@ -30,6 +29,8 @@ import {
   FileSearch,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { useSidebarContext } from "@/lib/sidebar-context"
 
 interface MenuItem {
   label: string
@@ -41,6 +42,8 @@ interface MenuItem {
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(true)
   const pathname = usePathname()
+  const isMobile = useIsMobile()
+  const { mobileOpen, setMobileOpen } = useSidebarContext()
 
   const menuItems: MenuItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -96,6 +99,10 @@ export function Sidebar() {
   const openDropdown: string | null =
     manualOpen === "closed" ? null : manualOpen ?? activeParent?.label ?? null
 
+  const closeMobileSidebar = () => {
+    if (isMobile) setMobileOpen(false)
+  }
+
   const renderMenuItem = (item: MenuItem, depth: number = 0) => {
     const hasChildren = item.children && item.children.length > 0
     const isExpanded = openDropdown === item.label
@@ -139,7 +146,10 @@ export function Sidebar() {
                   <Link
                     key={child.href}
                     href={child.href || "#"}
-                    onClick={() => setManualOpen(item.label)}
+                    onClick={() => {
+                      setManualOpen(item.label)
+                      closeMobileSidebar()
+                    }}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
                       childActive
@@ -163,7 +173,10 @@ export function Sidebar() {
       <Link
         key={item.href}
         href={item.href || "#"}
-        onClick={() => setManualOpen(null)}
+        onClick={() => {
+          setManualOpen(null)
+          closeMobileSidebar()
+        }}
         className={cn(
           "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
           isActive
@@ -179,38 +192,50 @@ export function Sidebar() {
     )
   }
 
+  const sidebarTranslate = isMobile ? (mobileOpen ? "translate-x-0" : "-translate-x-full") : "translate-x-0"
+  const sidebarWidth = isMobile ? "w-64 max-w-[85vw]" : isOpen ? "w-64" : "w-20"
+
   return (
     <>
-      {/* Mobile Menu Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-primary text-primary-foreground rounded-lg"
-      >
-        {isOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
+      {/* Overlay for mobile: tap outside to close */}
+      {isMobile && mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+        />
+      )}
 
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out z-30",
-          isOpen ? "w-64" : "w-20",
-          "md:translate-x-0",
-          !isOpen && "max-md:-translate-x-full"
+          "fixed left-0 top-0 h-screen bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out z-50",
+          sidebarWidth,
+          sidebarTranslate,
+          "md:translate-x-0"
         )}
       >
-        <div className="p-6 border-b border-sidebar-border">
-          <h1 className={cn("font-bold text-xl", !isOpen && "text-center")}>
-            {isOpen ? "RepairOnGo" : "RG"}
+        <div className="p-4 sm:p-6 border-b border-sidebar-border flex items-center justify-between gap-2">
+          <h1 className={cn("font-bold text-lg sm:text-xl truncate", !isOpen && !isMobile && "text-center")}>
+            {isOpen || isMobile ? "RepairOnGo" : "RG"}
           </h1>
+          {/* Close button: only on mobile when drawer is open */}
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="md:hidden p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground"
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
+          )}
         </div>
 
-        <nav className="p-4 space-y-2 flex flex-col h-[calc(100vh-80px)] overflow-y-auto">
+        <nav className="p-3 sm:p-4 space-y-2 flex flex-col h-[calc(100vh-80px)] overflow-y-auto overflow-x-hidden">
           {menuItems.map((item) => renderMenuItem(item))}
         </nav>
       </aside>
-
-      {/* Overlay for mobile */}
-      {isOpen && <div className="fixed inset-0 bg-black/50 md:hidden z-40" onClick={() => setIsOpen(false)} />}
     </>
   )
 }

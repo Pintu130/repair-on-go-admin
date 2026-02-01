@@ -1,7 +1,9 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
-import { collection, getDocs, doc, getDoc, updateDoc, Timestamp, deleteField } from "firebase/firestore"
+import { collection, getDocs, doc, getDoc, updateDoc, Timestamp, deleteField, query, where, setDoc, serverTimestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
 import type { Order } from "@/data/orders"
+
+const REVIEW_ELIGIBILITY_COLLECTION = "reviewEligibility"
 
 export interface BookingsResponse {
   bookings: Order[]
@@ -10,6 +12,12 @@ export interface BookingsResponse {
 
 export interface BookingResponse {
   booking: Order | null
+}
+
+/** User ke liye woh categories jahan wo review de sakta hai (sirf jahan koi order Delivered hai) */
+export interface ReviewEligibleCategoriesResponse {
+  categoryIds: string[]
+  categories: { categoryId: string; categoryName: string }[]
 }
 
 // Helper function to convert Firestore timestamp to date string
@@ -132,6 +140,7 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
   return {
     id: docId || "",
     bookingId: docData.bookingId || docId || "",
+    customerUid: docData.customerUid || "",
     customer: customerName,
     service: textDescription || category, // Use description as service or fallback to category
     mobileNumber: mobileNumber,
@@ -150,10 +159,44 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
   }
 }
 
+// --- reviewEligibility collection: user -> categories jahan review de sakta hai ---
+
+/** Bookings se compute karo: is user ke kaun se categories delivered hai */
+async function computeEligibleCategoriesFromBookings(customerUid: string): Promise<ReviewEligibleCategoriesResponse> {
+  const bookingsRef = collection(db, "bookings")
+  const q = query(
+    bookingsRef,
+    where("customerUid", "==", customerUid.trim()),
+    where("status", "==", "delivered")
+  )
+  const snapshot = await getDocs(q)
+  const seen = new Set<string>()
+  const categories: { categoryId: string; categoryName: string }[] = []
+  snapshot.docs.forEach((docSnap) => {
+    const d = docSnap.data()
+    const categoryId = (d.categoryId ?? "").toString().trim()
+    const categoryName = (d.categoryName ?? "Unknown").toString().trim()
+    if (!categoryId || seen.has(categoryId)) return
+    seen.add(categoryId)
+    categories.push({ categoryId, categoryName })
+  })
+  return { categoryIds: categories.map((c) => c.categoryId), categories }
+}
+
+/** reviewEligibility collection mein is user ka doc update karo (bookings se compute karke) */
+async function syncReviewEligibilityForUser(customerUid: string): Promise<void> {
+  const { categories } = await computeEligibleCategoriesFromBookings(customerUid)
+  const ref = doc(db, REVIEW_ELIGIBILITY_COLLECTION, customerUid)
+  await setDoc(ref, {
+    eligibleCategories: categories,
+    updatedAt: serverTimestamp(),
+  })
+}
+
 export const bookingsApi = createApi({
   reducerPath: "bookingsApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
-  tagTypes: ["Bookings"],
+  tagTypes: ["Bookings", "ReviewEligibility"],
   endpoints: (builder) => ({
     getBookings: builder.query<BookingsResponse, void>({
       queryFn: async () => {
@@ -257,6 +300,43 @@ export const bookingsApi = createApi({
       },
       providesTags: (result, error, bookingId) => [{ type: "Bookings", id: bookingId }],
     }),
+    /**
+     * reviewEligibility collection se: is user ke liye kaun si categories mein review de sakta hai.
+     * Agar doc nahi hai toh pehle bookings se compute karke collection mein likhenge, phir return.
+     */
+    getReviewEligibleCategories: builder.query<ReviewEligibleCategoriesResponse, string>({
+      queryFn: async (customerUid: string) => {
+        try {
+          if (!customerUid?.trim()) {
+            return { data: { categoryIds: [], categories: [] } }
+          }
+          const uid = customerUid.trim()
+          const ref = doc(db, REVIEW_ELIGIBILITY_COLLECTION, uid)
+          let snap = await getDoc(ref)
+          if (!snap.exists()) {
+            await syncReviewEligibilityForUser(uid)
+            snap = await getDoc(ref)
+          }
+          const data = snap.data()
+          const categories = Array.isArray(data?.eligibleCategories) ? data.eligibleCategories : []
+          const categoryIds = categories.map((c: { categoryId?: string }) => (c?.categoryId ?? "").trim()).filter(Boolean)
+          return {
+            data: { categoryIds, categories },
+          }
+        } catch (error: any) {
+          console.error("❌ getReviewEligibleCategories:", error)
+          return {
+            error: {
+              status: "CUSTOM_ERROR",
+              error: error.message || "Failed to fetch review-eligible categories",
+              data: error.message,
+            },
+          }
+        }
+      },
+      providesTags: (result, error, customerUid) =>
+        result ? [{ type: "ReviewEligibility", id: customerUid }] : [],
+    }),
     updateBooking: builder.mutation<
       { success: boolean; message: string },
       { bookingId: string; updates: { status?: string; serviceReason?: string; serviceAmount?: number; cancelledAtStatus?: string } }
@@ -268,23 +348,26 @@ export const bookingsApi = createApi({
           // Find the booking document by bookingId or document ID
           const bookingsRef = collection(db, "bookings")
           const querySnapshot = await getDocs(bookingsRef)
-          
-          let bookingDocRef = null
+          let bookingDocRef: ReturnType<typeof doc> | null = null
+          let customerUidForSync: string | null = null
+
           for (const docSnapshot of querySnapshot.docs) {
             const docData = docSnapshot.data()
             if (docData.bookingId === bookingId || docSnapshot.id === bookingId) {
               bookingDocRef = doc(db, "bookings", docSnapshot.id)
+              customerUidForSync = (docData.customerUid ?? "").toString().trim() || null
               break
             }
           }
 
-          // If not found by bookingId, try by document ID
           if (!bookingDocRef) {
             try {
               const docRef = doc(db, "bookings", bookingId)
               const docSnap = await getDoc(docRef)
               if (docSnap.exists()) {
                 bookingDocRef = docRef
+                const d = docSnap.data()
+                customerUidForSync = (d?.customerUid ?? "").toString().trim() || null
               }
             } catch (e) {
               // Document doesn't exist
@@ -341,8 +424,16 @@ export const bookingsApi = createApi({
             updateData.cancelledAtStatus = updates.cancelledAtStatus
           }
 
-          // Update the document
           await updateDoc(bookingDocRef, updateData)
+
+          // Status change hone par reviewEligibility collection sync karo (user ka "review de sakta hai" list)
+          if (updates.status !== undefined && customerUidForSync) {
+            try {
+              await syncReviewEligibilityForUser(customerUidForSync)
+            } catch (syncErr: any) {
+              console.warn("⚠️ reviewEligibility sync failed:", syncErr)
+            }
+          }
 
           console.log(`✅ Successfully updated booking ${bookingId}`)
 
@@ -363,17 +454,19 @@ export const bookingsApi = createApi({
           }
         }
       },
-      invalidatesTags: (result, error, { bookingId }) => [
-        { type: "Bookings", id: bookingId },
+      invalidatesTags: (result, error) => [
         { type: "Bookings" },
+        { type: "ReviewEligibility" },
       ],
     }),
   }),
 })
 
+
 export const {
   useGetBookingsQuery,
   useGetBookingByIdQuery,
+  useGetReviewEligibleCategoriesQuery,
   useUpdateBookingMutation,
 } = bookingsApi
 

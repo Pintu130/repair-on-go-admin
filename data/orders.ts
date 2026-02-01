@@ -1,6 +1,7 @@
 export interface Order {
   id: string
   bookingId: string
+  customerUid?: string
   customer: string
   service: string
   mobileNumber: string

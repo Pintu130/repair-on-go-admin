@@ -4,6 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { SidebarProvider } from "@/lib/sidebar-context"
 import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
 import { Loader } from "@/components/ui/loader"
@@ -53,14 +54,16 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      <div className="flex flex-col flex-1 ml-64">
-        <Header />
-        <main className="flex-1 overflow-auto bg-background">
-          <div className="p-6">{children}</div>
-        </main>
+    <SidebarProvider>
+      <div className="flex h-screen bg-background min-w-0">
+        <Sidebar />
+        <div className="flex flex-col flex-1 min-w-0 ml-0 md:ml-64">
+          <Header />
+          <main className="flex-1 overflow-auto bg-background">
+            <div className="p-4 sm:p-6">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }

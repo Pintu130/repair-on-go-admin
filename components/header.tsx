@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Eye, EyeOff, LogOut, Menu, Shield, User2, X } from "lucide-react"
 import { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
+import { useSidebarContext } from "@/lib/sidebar-context"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,11 +17,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 export function Header() {
-  const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
   const [showNewPassword, setShowNewPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const { logout, user: authUser } = useAuth()
+  const { setMobileOpen } = useSidebarContext()
 
   // Use user data from auth context, fallback to default if not available
   const user = {
@@ -31,18 +32,18 @@ export function Header() {
 
   return (
     <header className="bg-gradient-to-r from-primary to-primary/90 text-primary-foreground shadow-lg sticky top-0 z-20">
-      <div className="flex items-center justify-end px-6 py-4 gap-4">
+      <div className="flex items-center justify-between md:justify-end px-4 sm:px-6 py-4 gap-4">
+        {/* Left: 3-line menu icon (mobile only) */}
+        <button
+          className="md:hidden text-primary-foreground hover:bg-primary-foreground/10 p-2 rounded-lg -ml-1"
+          onClick={() => setMobileOpen((prev) => !prev)}
+          aria-label="Open menu"
+        >
+          <Menu size={24} />
+        </button>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-6">
-          {/* Mobile Menu Button (placeholder for future) */}
-          <button
-            className="md:hidden text-primary-foreground hover:bg-primary-foreground/10 p-2 rounded-lg"
-            onClick={() => setShowMobileMenu((prev) => !prev)}
-          >
-            <Menu size={24} />
-          </button>
-
+        {/* Right: User Info + Avatar + Menu */}
+        <div className="flex items-center gap-4 sm:gap-6">
           {/* User Info + Avatar + Menu */}
           <div className="flex items-center gap-3">
             {/* Email & Role */}
