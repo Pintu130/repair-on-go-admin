@@ -20,5 +20,6 @@ export interface Order {
   serviceAmount?: number
   // Cancellation details
   cancelledAtStatus?: "booked"| "confirmed" | "picked" | "serviceCenter" | "repair" | "outForDelivery" | "delivered"
+  cancellationMessage?: string
 }
 

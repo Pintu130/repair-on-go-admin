@@ -140,6 +140,7 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
   return {
     id: docId || "",
     bookingId: docData.bookingId || docId || "",
+    cancellationMessage: docData.cancellationMessage || "",
     customerUid: docData.customerUid || "",
     customer: customerName,
     service: textDescription || category, // Use description as service or fallback to category
@@ -201,8 +202,6 @@ export const bookingsApi = createApi({
     getBookings: builder.query<BookingsResponse, void>({
       queryFn: async () => {
         try {
-          console.log("🔥 Fetching bookings from Firestore...")
-
           const bookingsRef = collection(db, "bookings")
           const querySnapshot = await getDocs(bookingsRef)
 
@@ -217,9 +216,6 @@ export const bookingsApi = createApi({
             const dateB = new Date(b.date).getTime()
             return dateB - dateA
           })
-
-          console.log(`✅ Fetched ${bookings.length} bookings from Firestore`)
-
           return {
             data: {
               bookings,
@@ -242,8 +238,6 @@ export const bookingsApi = createApi({
     getBookingById: builder.query<BookingResponse, string>({
       queryFn: async (bookingId: string) => {
         try {
-          console.log(`🔥 Fetching booking ${bookingId} from Firestore...`)
-
           // First try to find by bookingId field
           const bookingsRef = collection(db, "bookings")
           const querySnapshot = await getDocs(bookingsRef)
@@ -324,7 +318,6 @@ export const bookingsApi = createApi({
             data: { categoryIds, categories },
           }
         } catch (error: any) {
-          console.error("❌ getReviewEligibleCategories:", error)
           return {
             error: {
               status: "CUSTOM_ERROR",

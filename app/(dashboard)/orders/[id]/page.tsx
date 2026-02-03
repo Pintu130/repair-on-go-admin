@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, User, Folder, IndianRupee } from "lucide-react"
+import { ArrowLeft, User, Folder, IndianRupee, AlertCircle } from "lucide-react"
 import { type Order } from "@/data/orders"
 import { InfoCard } from "@/components/common/info-card"
 import { OrderHeaderBadges } from "@/components/common/order-header-badges"
@@ -14,6 +14,7 @@ import { AdditionalInformation } from "@/components/common/additional-informatio
 import { QuickActions } from "@/components/common/quick-actions"
 import { ServiceCenterModal } from "@/components/common/service-center-modal"
 import { useGetBookingByIdQuery, useUpdateBookingMutation } from "@/lib/store/api/bookingsApi"
+import { Badge } from "@/components/ui/badge"
 import { OrderDetailSkeleton } from "@/components/common/order-detail-skeleton"
 import { useToast } from "@/hooks/use-toast"
 
@@ -211,6 +212,19 @@ export default function OrderDetailPage() {
           </Link>
         </div>
       </div>
+
+      {/* Cancellation message: show when status is cancelled and cancellationMessage exists */}
+      {order.status === "cancelled" && order.cancellationMessage?.trim() && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3">
+          <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="destructive" className="shrink-0">
+              Cancelled
+            </Badge>
+            <span className="text-sm text-foreground">{order.cancellationMessage}</span>
+          </div>
+        </div>
+      )}
 
       {/* Key Information Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
