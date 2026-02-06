@@ -2,23 +2,13 @@
 
 import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, MapPin, Search, Loader2, TrendingUp, Users, Globe } from "lucide-react"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts"
+import { Trash2, MapPin, Search, Loader2, TrendingUp, Users, Globe, Repeat } from "lucide-react"
 import { useGetCategoryRequestsQuery, useDeleteAllCategoryRequestsMutation, type CategoryRequest } from "@/lib/store/api/categoryRequestsApi"
 import { SearchInput } from "@/components/common/search-input"
 import { Pagination } from "@/components/common/pagination"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
+import { InfoCard } from "@/components/common/info-card"
 import {
   Dialog,
   DialogContent,
@@ -27,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 
 export default function CategoryRequestsPage() {
   const [currentPage, setCurrentPage] = useState(1)
@@ -57,6 +48,16 @@ export default function CategoryRequestsPage() {
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // Query match count: har query kitni baar aayi (table column ke liye)
+  const queryMatchCount = useMemo(() => {
+    const map: Record<string, number> = {}
+    requests.forEach((r) => {
+      const q = r.query.toLowerCase().trim()
+      map[q] = (map[q] || 0) + 1
+    })
+    return map
+  }, [requests])
 
   // Calculate statistics for cards
   const stats = useMemo(() => {
@@ -101,10 +102,12 @@ export default function CategoryRequestsPage() {
 
     // Most common queries (for stats)
     const queryCounts: Record<string, number> = {}
+    const queryToOriginal: Record<string, string> = {}
     requests.forEach((req) => {
       const query = req.query.toLowerCase().trim()
       if (query) {
         queryCounts[query] = (queryCounts[query] || 0) + 1
+        if (!queryToOriginal[query]) queryToOriginal[query] = req.query
       }
     })
     const topQueries = Object.entries(queryCounts)
@@ -115,11 +118,25 @@ export default function CategoryRequestsPage() {
     // Total unique queries
     const uniqueQueries = new Set(requests.map((r) => r.query.toLowerCase().trim())).size
 
+    // Query match breakdown: har query kitni baar search hua (sorted by count desc)
+    const queryMatchBreakdown = Object.entries(queryCounts)
+      .map(([q, count]) => ({ query: queryToOriginal[q] || q, count }))
+      .sort((a, b) => b.count - a.count)
+
+    // Total matched (repeated) searches: jitni baar same query dobara search hua
+    const totalMatchedRepeats = Object.values(queryCounts).reduce(
+      (sum, count) => sum + (count > 1 ? count - 1 : 0),
+      0
+    )
+
     return {
       topQueryLocations,
       topQueries,
       totalRequests: requests.length,
       uniqueQueries,
+      queryMatchBreakdown,
+      totalMatchedRepeats,
+      queryCounts, // lowercase query -> count (for table column)
     }
   }, [requests])
 
@@ -192,272 +209,35 @@ export default function CategoryRequestsPage() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Requests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Search className="h-5 w-5 text-primary" />
-              <p className="text-2xl font-bold">{stats.totalRequests}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Unique Queries</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <p className="text-2xl font-bold">{stats.uniqueQueries}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Top Combinations</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary" />
-              <p className="text-2xl font-bold">{stats.topQueryLocations.length}</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Top Queries</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              <p className="text-2xl font-bold">{stats.topQueries.length}</p>
-            </div>
-          </CardContent>
-        </Card>
+        <InfoCard
+          icon={Search}
+          label="Total Requests"
+          value={stats.totalRequests.toString()}
+          iconColor="text-primary"
+          iconBgColor="bg-primary/10"
+        />
+        <InfoCard
+          icon={Repeat}
+          label="Matched (Repeated)"
+          value={stats.totalMatchedRepeats.toString()}
+          iconColor="text-amber-600"
+          iconBgColor="bg-amber-500/10"
+        />
+        <InfoCard
+          icon={TrendingUp}
+          label="Unique Queries"
+          value={stats.uniqueQueries.toString()}
+          iconColor="text-primary"
+          iconBgColor="bg-primary/10"
+        />
+        <InfoCard
+          icon={Globe}
+          label="Top Combinations"
+          value={stats.topQueryLocations.length.toString()}
+          iconColor="text-primary"
+          iconBgColor="bg-primary/10"
+        />
       </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* BarChart for Top Queries */}
-        {stats.topQueries.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Top Searched Queries</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Most popular search queries (recommendations for new categories)
-              </p>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={stats.topQueries.map((item) => ({
-                    name: item.query.length > 20 ? `${item.query.substring(0, 20)}...` : item.query,
-                    fullQuery: item.query,
-                    searches: item.count,
-                  }))}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="name"
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                    interval={0}
-                    tick={{ fontSize: 11 }}
-                  />
-                  <YAxis />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload
-                        return (
-                          <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
-                            <p className="font-semibold mb-1">{data.fullQuery}</p>
-                            <p className="text-sm font-medium">
-                              <span className="text-primary">{data.searches}</span> searches
-                            </p>
-                          </div>
-                        )
-                      }
-                      return null
-                    }}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="searches"
-                    fill="#3B82F6"
-                    radius={[8, 8, 0, 0]}
-                    name="Number of Searches"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* BarChart for Query + Location Combinations */}
-        {stats.topQueryLocations.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Query & Location Combinations</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Most searched queries with their locations
-              </p>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={stats.topQueryLocations.slice(0, 10).map((item) => ({
-                    name: `${item.query.substring(0, 12)}${item.query.length > 12 ? "..." : ""}\n${item.city.substring(0, 10)}${item.city.length > 10 ? "..." : ""}`,
-                    query: item.query,
-                    city: item.city,
-                    region: item.region,
-                    searches: item.count,
-                    fullLabel: `${item.query} - ${item.city}`,
-                  }))}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="name"
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
-                    interval={0}
-                    tick={{ fontSize: 10 }}
-                  />
-                  <YAxis />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload
-                        return (
-                          <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
-                            <p className="font-semibold mb-1">{data.query}</p>
-                            <p className="text-sm text-muted-foreground mb-1">
-                              <MapPin className="h-3 w-3 inline mr-1" />
-                              {data.city}, {data.region}
-                            </p>
-                            <p className="text-sm font-medium">
-                              <span className="text-primary">{data.searches}</span> searches
-                            </p>
-                          </div>
-                        )
-                      }
-                      return null
-                    }}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="searches"
-                    fill="#ED2C2C"
-                    radius={[8, 8, 0, 0]}
-                    name="Number of Searches"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Query + Location Combination Cards */}
-      {stats.topQueryLocations.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Top Query & Location Combinations (Recommendations)</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Most searched queries with their locations - Click on location to view map
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {stats.topQueryLocations.map((item, index) => (
-                <Card
-                  key={`${item.query}-${item.city}-${index}`}
-                  className="hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => {
-                    if (item.lat && item.lon) {
-                      handleLocationClick({
-                        city: item.city,
-                        region: item.region,
-                        country: item.country,
-                        countryCode: "",
-                        ip: "",
-                        lat: item.lat,
-                        lon: item.lon,
-                        pincode: item.pincode,
-                        timezone: "",
-                      })
-                    }
-                  }}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Search className="h-4 w-4 text-primary shrink-0" />
-                          <p className="font-semibold text-sm truncate">{item.query}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium truncate">{item.city}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {item.region}, {item.country}
-                            </p>
-                            {item.pincode && (
-                              <p className="text-xs text-muted-foreground">{item.pincode}</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="secondary" className="shrink-0">
-                        #{index + 1}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between pt-2 border-t">
-                      <p className="text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">{item.count}</span> searches
-                      </p>
-                      {item.lat && item.lon && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleLocationClick({
-                              city: item.city,
-                              region: item.region,
-                              country: item.country,
-                              countryCode: "",
-                              ip: "",
-                              lat: item.lat,
-                              lon: item.lon,
-                              pincode: item.pincode,
-                              timezone: "",
-                            })
-                          }}
-                        >
-                          <MapPin className="h-3 w-3 mr-1" />
-                          Map
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Search and Filters */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
@@ -467,16 +247,6 @@ export default function CategoryRequestsPage() {
           placeholder="Search by query, user, email, or location..."
           label="Search Requests"
         />
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setSearchTerm("")}
-            disabled={!searchTerm}
-            className="cursor-pointer"
-          >
-            Clear
-          </Button>
-        </div>
       </div>
 
       {/* Table */}
@@ -499,17 +269,22 @@ export default function CategoryRequestsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Query</TableHead>
+                      <TableHead className="w-24 text-center">Match count</TableHead>
                       <TableHead>User</TableHead>
                       <TableHead>Location</TableHead>
                       <TableHead>Date</TableHead>
-                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedData.map((request) => (
+                    {paginatedData.map((request) => {
+                      const count = stats.queryCounts[request.query.toLowerCase().trim()] ?? 1
+                      return (
                       <TableRow key={request.id}>
                         <TableCell>
                           <div className="font-semibold">{request.query}</div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={count > 1 ? "default" : "secondary"}>{count}</Badge>
                         </TableCell>
                         <TableCell>
                           <div>
@@ -546,19 +321,9 @@ export default function CategoryRequestsPage() {
                             })}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleLocationClick(request.location)}
-                            className="cursor-pointer"
-                          >
-                            <MapPin className="h-4 w-4 mr-2" />
-                            View Map
-                          </Button>
-                        </TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -575,68 +340,6 @@ export default function CategoryRequestsPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Map Dialog */}
-      <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
-            <DialogTitle>Location on Map</DialogTitle>
-            <DialogDescription>
-              {selectedLocation && (
-                <>
-                  {selectedLocation.city}, {selectedLocation.region}, {selectedLocation.country}
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedLocation && (
-            <div className="w-full h-[400px] rounded-lg overflow-hidden border">
-              {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ? (
-                <iframe
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  loading="lazy"
-                  allowFullScreen
-                  referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://www.google.com/maps/embed/v1/place?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&q=${selectedLocation.lat},${selectedLocation.lon}&zoom=15`}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-muted">
-                  <div className="text-center p-4">
-                    <MapPin className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm font-medium mb-1">
-                      {selectedLocation.city}, {selectedLocation.region}
-                    </p>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {selectedLocation.country} - {selectedLocation.pincode}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Coordinates: {selectedLocation.lat.toFixed(4)}, {selectedLocation.lon.toFixed(4)}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable map view
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-4 cursor-pointer"
-                      onClick={() => {
-                        window.open(
-                          `https://www.google.com/maps?q=${selectedLocation.lat},${selectedLocation.lon}`,
-                          "_blank"
-                        )
-                      }}
-                    >
-                      Open in Google Maps
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Modal */}
       <ConfirmationModal

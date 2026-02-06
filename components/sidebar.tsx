@@ -57,6 +57,14 @@ export function Sidebar() {
     },
     { label: "Orders", href: "/orders", icon: ShoppingCart },
     {
+      label: "Categories",
+      icon: FolderTree,
+      children: [
+        { label: "Category", href: "/categories", icon: FolderTree },
+        { label: "Category Requests", href: "/category-requests", icon: FileSearch },
+      ],
+    },
+    {
       label: "Promotions",
       icon: Sparkles,
       children: [
@@ -64,9 +72,6 @@ export function Sidebar() {
         { label: "Announcements", href: "/announcements", icon: Megaphone },
       ],
     },
-    { label: "Payments", href: "/payments", icon: CreditCard },
-    { label: "FAQ", href: "/faq", icon: HelpCircle },
-    { label: "Contact", href: "/contact", icon: MessageCircle },
     {
       label: "Staff Management",
       icon: UsersRound,
@@ -76,12 +81,13 @@ export function Sidebar() {
         { label: "Admin Users", href: "/admin-users", icon: ShieldCheck },
       ],
     },
+    { label: "Payments", href: "/payments", icon: CreditCard },
+    { label: "FAQ", href: "/faq", icon: HelpCircle },
+    { label: "Contact", href: "/contact", icon: MessageCircle },
     {
       label: "Web Configurations",
       icon: Globe,
       children: [
-        { label: "Categories", href: "/categories", icon: FolderTree },
-        { label: "Category Requests", href: "/category-requests", icon: FileSearch },
         { label: "SEO", href: "/seo", icon: Search },
         { label: "Web Settings", href: "/web-settings", icon: Settings },
       ],
