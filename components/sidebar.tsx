@@ -27,6 +27,7 @@ import {
   Sparkles,
   MessageCircle,
   FileSearch,
+  Image as ImageIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -82,6 +83,7 @@ export function Sidebar() {
       ],
     },
     { label: "Payments", href: "/payments", icon: CreditCard },
+    { label: "Gallery", href: "/gallery", icon: ImageIcon },
     { label: "FAQ", href: "/faq", icon: HelpCircle },
     { label: "Contact", href: "/contact", icon: MessageCircle },
     {

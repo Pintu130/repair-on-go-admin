@@ -19,7 +19,6 @@ import { useToast } from "@/hooks/use-toast"
 export default function ReviewsPage() {
   // Fetch reviews from Firebase
   const { data, isLoading, isError, error, refetch } = useGetReviewsQuery()
-  console.log("2222222222222222222", data)
   const [createReview, { isLoading: isCreating }] = useCreateReviewMutation()
   const [updateReview, { isLoading: isUpdating }] = useUpdateReviewMutation()
   const [deleteReview, { isLoading: isDeleting }] = useDeleteReviewMutation()
