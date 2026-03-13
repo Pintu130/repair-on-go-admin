@@ -61,18 +61,13 @@ export default function LoginPage() {
     }
   }
 
-  // Show loading while checking authentication
-  if (authLoading) {
+  // Show loading while checking authentication OR when redirecting after login (avoids white screen)
+  if (authLoading || isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center p-4">
         <Spinner />
       </div>
     )
-  }
-
-  // Don't show login page if already authenticated
-  if (isAuthenticated) {
-    return null
   }
 
   return (
