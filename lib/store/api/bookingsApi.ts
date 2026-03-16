@@ -20,7 +20,7 @@ export interface ReviewEligibleCategoriesResponse {
   categories: { categoryId: string; categoryName: string }[]
 }
 
-// Helper function to convert Firestore timestamp to date string
+// Helper function to convert Firestore timestamp to date string (YYYY-MM-DD)
 const convertTimestamp = (timestamp: any): string => {
   if (!timestamp) return new Date().toISOString().split("T")[0]
 
@@ -33,19 +33,34 @@ const convertTimestamp = (timestamp: any): string => {
   }
 
   if (typeof timestamp === "string") {
-    // If it's already a date string, try to parse and format it
     try {
       const date = new Date(timestamp)
       if (!isNaN(date.getTime())) {
         return date.toISOString().split("T")[0]
       }
-    } catch (e) {
-      // If parsing fails, return as is
-    }
-    return timestamp.split("T")[0] // Extract date part if it's ISO string
+    } catch (e) {}
+    return timestamp.split("T")[0]
   }
 
   return new Date().toISOString().split("T")[0]
+}
+
+// Helper to convert Firestore timestamp to full ISO string (for statusTimestamps)
+const timestampToISO = (timestamp: any): string | undefined => {
+  if (!timestamp) return undefined
+  if (timestamp instanceof Timestamp) {
+    return timestamp.toDate().toISOString()
+  }
+  if (timestamp?.seconds != null) {
+    return new Date(timestamp.seconds * 1000).toISOString()
+  }
+  if (typeof timestamp === "string") {
+    try {
+      const date = new Date(timestamp)
+      return isNaN(date.getTime()) ? undefined : date.toISOString()
+    } catch (e) {}
+  }
+  return undefined
 }
 
 // Helper function to map payment method from Firebase to Order type
@@ -137,6 +152,27 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
   // Get cancelledAtStatus
   const cancelledAtStatus = docData.cancelledAtStatus || undefined
 
+  // Build statusTimestamps: each status -> when it was set (ISO string)
+  const statusTimestamps: Record<string, string> = {}
+  const rawStatusTimestamps = docData.statusTimestamps || {}
+  for (const [key, value] of Object.entries(rawStatusTimestamps)) {
+    const iso = timestampToISO(value)
+    if (iso) statusTimestamps[key] = iso
+  }
+  // "booked" = createdAt if not already in statusTimestamps (backward compatibility)
+  const createdAtIso = docData.createdAt ? timestampToISO(docData.createdAt) : undefined
+  if (!statusTimestamps.booked && createdAtIso) {
+    statusTimestamps.booked = createdAtIso
+  }
+
+  // When user books with payment paid, status is set directly to "confirmed" — same date/time for Booked & Confirmed
+  const confirmedOrLater = ["confirmed", "picked", "serviceCenter", "repair", "outForDelivery", "delivered"]
+  if (!statusTimestamps.confirmed && confirmedOrLater.includes(status) && createdAtIso) {
+    statusTimestamps.confirmed = createdAtIso
+  }
+
+  const updatedAt = timestampToISO(docData.updatedAt) || undefined
+
   return {
     id: docId || "",
     bookingId: docData.bookingId || docId || "",
@@ -151,6 +187,8 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
     amount: amount,
     status: status,
     date: date,
+    statusTimestamps: Object.keys(statusTimestamps).length > 0 ? statusTimestamps : undefined,
+    updatedAt,
     images: images.length > 0 ? images : undefined,
     audioRecording: audioRecording,
     textDescription: textDescription,
@@ -381,7 +419,6 @@ export const bookingsApi = createApi({
           const updateData: any = {}
           
           if (updates.status !== undefined) {
-            // Map status to Firebase format
             const statusMap: Record<string, string> = {
               booked: "booked",
               confirmed: "confirmed",
@@ -392,7 +429,30 @@ export const bookingsApi = createApi({
               delivered: "delivered",
               cancelled: "cancelled",
             }
-            updateData.status = statusMap[updates.status] || updates.status
+            const firebaseStatus = statusMap[updates.status] || updates.status
+            updateData.status = firebaseStatus
+            updateData.updatedAt = serverTimestamp()
+
+            const statusStepsOrder = ["booked", "confirmed", "picked", "serviceCenter", "repair", "outForDelivery", "delivered"]
+
+            if (firebaseStatus === "cancelled") {
+              updateData["statusTimestamps.cancelled"] = serverTimestamp()
+            } else {
+              // Get current status from document to know how many steps were skipped
+              const docSnap = await getDoc(bookingDocRef)
+              const currentStatus = (docSnap.data()?.status as string) ?? "booked"
+              const currentIndex = statusStepsOrder.indexOf(currentStatus)
+              const newIndex = statusStepsOrder.indexOf(firebaseStatus)
+
+              // Set timestamp for new status AND all in-between steps (same update time for skipped steps)
+              if (newIndex > currentIndex) {
+                for (let i = currentIndex + 1; i <= newIndex; i++) {
+                  updateData[`statusTimestamps.${statusStepsOrder[i]}`] = serverTimestamp()
+                }
+              } else {
+                updateData[`statusTimestamps.${firebaseStatus}`] = serverTimestamp()
+              }
+            }
           }
 
           if (updates.serviceReason !== undefined) {

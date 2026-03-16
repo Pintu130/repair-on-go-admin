@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Wrench, Package, Home, X } from "lucide-react"
-import { formatDate } from "@/lib/utils/date"
+import { formatDate, formatDateTime } from "@/lib/utils/date"
 
 interface OrderTimelineProps {
   statusSteps: string[]
@@ -16,6 +16,8 @@ interface OrderTimelineProps {
     status: string
     date?: string
     updatedAt?: string
+    /** When each status was set (ISO string). Used to show correct date per step. */
+    statusTimestamps?: Record<string, string>
   }
 }
 
@@ -49,22 +51,21 @@ const getDisplayStatus = (step: string, statusLabels: Record<string, string>): s
 }
 
 export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, orderDate, isCancelled = false, cancelledAtStatus, order }: OrderTimelineProps) {
-  // Get date for each step
+  // Get date for each step: use stored timestamp when that status was set (no more "current date" for all)
   const getStepDate = (index: number, step: string, isCompleted: boolean): string => {
-    // If step is not completed, don't show date
     if (!isCompleted) return ""
-    
-    // For "booked" status, always use order date (original booking date)
+
+    // Prefer statusTimestamps (when admin/user set this status) for accurate date per step
+    const stepTimestamp = order?.statusTimestamps?.[step]
+    if (stepTimestamp) {
+      return stepTimestamp // ISO string; formatDate will format it
+    }
+
+    // Fallback: for "booked" use order date (createdAt) for backward compatibility
     if (step === "booked" && orderDate) {
       return orderDate
     }
-    
-    // For all other completed statuses, use current date/time (real-time when status is updated)
-    if (isCompleted) {
-      const now = new Date()
-      return now.toISOString().split("T")[0]
-    }
-    
+
     return ""
   }
 
@@ -217,7 +218,9 @@ export function OrderTimeline({ statusSteps, statusLabels, currentStatusIndex, o
                     {tracking && (
                       <>
                         <p className="text-[10px] sm:text-xs text-gray-500 mb-0.5 sm:mb-1">
-                          {formatDate(tracking.date)}
+                          {tracking.date?.includes("T")
+                            ? formatDateTime(tracking.date)
+                            : formatDate(tracking.date)}
                         </p>
                         <p className="text-[10px] sm:text-xs text-gray-600 line-clamp-2 hidden sm:block">
                           {tracking.description}

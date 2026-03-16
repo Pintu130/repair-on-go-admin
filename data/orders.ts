@@ -11,6 +11,10 @@ export interface Order {
   amount: number
   status: "booked"| "confirmed" | "picked" | "serviceCenter" | "repair" | "outForDelivery" | "delivered" | "cancelled"
   date: string
+  /** When each status was set (ISO string per status key). Used for timeline. */
+  statusTimestamps?: Record<string, string>
+  /** Last updated at (ISO string). */
+  updatedAt?: string
   // Customer submission
   images?: string[]
   audioRecording?: string
