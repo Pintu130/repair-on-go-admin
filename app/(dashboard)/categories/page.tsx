@@ -2,9 +2,10 @@
 
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Edit2, Trash2, Plus, Package, Loader2 } from "lucide-react"
+import { StatusBadge } from "@/components/common/status-badge"
 import { CategoryModal } from "@/components/common/category-modal"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
 import { useGetCategoriesQuery, useCreateCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation, type Category } from "@/lib/store/api/categoriesApi"
@@ -32,12 +33,18 @@ export default function CategoriesPage() {
     seoTitle: "",
     seoDescription: "",
     seoKeywords: "",
+    status: "active" as "active" | "inactive",
+    sortOrder: 1,
+    referenceFront: "",
+    referenceProblem: "",
+    referenceModel: "",
+    guidelines: [] as string[],
   })
   // Store base64 image data separately for API
   const [iconData, setIconData] = useState<string>("")
   const [seoImageData, setSeoImageData] = useState<string>("")
 
-  const handleAddCategory = async () => {
+  const handleAddCategory = async (sortOrder: number) => {
     if (!formData.name.trim()) {
       toast({
         title: "Validation Error",
@@ -48,10 +55,22 @@ export default function CategoriesPage() {
     }
 
     try {
+      const guidelinesClean = formData.guidelines.map((g) => g.trim()).filter(Boolean)
       await createCategory({
         ...formData,
+        sortOrder: Math.max(1, sortOrder),
         iconData: iconData || formData.icon,
         seoImageData: seoImageData || formData.seoImage,
+        referenceFrontData: formData.referenceFront.startsWith("data:image/")
+          ? formData.referenceFront
+          : undefined,
+        referenceProblemData: formData.referenceProblem.startsWith("data:image/")
+          ? formData.referenceProblem
+          : undefined,
+        referenceModelData: formData.referenceModel.startsWith("data:image/")
+          ? formData.referenceModel
+          : undefined,
+        guidelines: guidelinesClean,
       }).unwrap()
 
       toast({
@@ -89,6 +108,12 @@ export default function CategoriesPage() {
       seoTitle: "",
       seoDescription: "",
       seoKeywords: "",
+      status: "active",
+      sortOrder: 1,
+      referenceFront: "",
+      referenceProblem: "",
+      referenceModel: "",
+      guidelines: [],
     })
     setIconData("")
     setSeoImageData("")
@@ -138,12 +163,21 @@ export default function CategoriesPage() {
       seoTitle: category.seoTitle,
       seoDescription: category.seoDescription,
       seoKeywords: category.seoKeywords,
+      status: category.status === "inactive" ? "inactive" : "active",
+      sortOrder:
+        typeof category.sortOrder === "number" && !Number.isNaN(category.sortOrder)
+          ? Math.max(1, category.sortOrder)
+          : 1,
+      referenceFront: category.referenceImages?.frontView || "",
+      referenceProblem: category.referenceImages?.problemArea || "",
+      referenceModel: category.referenceImages?.modelBrand || "",
+      guidelines: category.guidelines?.length ? [...category.guidelines] : [],
     })
     setIconData("")
     setSeoImageData("")
   }
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = async (sortOrder: number) => {
     if (!editingId || !formData.name.trim()) {
       toast({
         title: "Validation Error",
@@ -154,16 +188,31 @@ export default function CategoriesPage() {
     }
 
     try {
-      const updateData: any = { ...formData }
-      
+      const guidelinesClean = formData.guidelines.map((g) => g.trim()).filter(Boolean)
+      const updateData: any = {
+        ...formData,
+        sortOrder: Math.max(1, sortOrder),
+        guidelines: guidelinesClean,
+      }
+
       // Only pass iconData if it's a new base64 image
       if (iconData && iconData.startsWith("data:image/")) {
         updateData.iconData = iconData
       }
-      
+
       // Only pass seoImageData if it's a new base64 image
       if (seoImageData && seoImageData.startsWith("data:image/")) {
         updateData.seoImageData = seoImageData
+      }
+
+      if (formData.referenceFront.startsWith("data:image/")) {
+        updateData.referenceFrontData = formData.referenceFront
+      }
+      if (formData.referenceProblem.startsWith("data:image/")) {
+        updateData.referenceProblemData = formData.referenceProblem
+      }
+      if (formData.referenceModel.startsWith("data:image/")) {
+        updateData.referenceModelData = formData.referenceModel
       }
 
       await updateCategory({
@@ -202,7 +251,32 @@ export default function CategoriesPage() {
           <h1 className="text-3xl font-bold text-balance">Categories</h1>
           <p className="text-muted-foreground">Manage service categories</p>
         </div>
-        <Button onClick={() => setIsAdding(true)} className="cursor-pointer">
+        <Button
+          onClick={() => {
+            const cats = data?.categories || []
+            const maxSo =
+              cats.length > 0 ? Math.max(...cats.map((c) => c.sortOrder ?? 0)) : 0
+            setFormData({
+              name: "",
+              description: "",
+              icon: "",
+              seoImage: "",
+              seoTitle: "",
+              seoDescription: "",
+              seoKeywords: "",
+              status: "active",
+              sortOrder: maxSo + 1,
+              referenceFront: "",
+              referenceProblem: "",
+              referenceModel: "",
+              guidelines: [],
+            })
+            setIconData("")
+            setSeoImageData("")
+            setIsAdding(true)
+          }}
+          className="cursor-pointer"
+        >
           <Plus size={16} className="mr-2" /> Add Category
         </Button>
       </div>
@@ -225,7 +299,7 @@ export default function CategoriesPage() {
             setSeoImageData(data.seoImage)
           }
         }}
-        onSave={editingId ? handleSaveEdit : handleAddCategory}
+        onSave={(sortOrder) => (editingId ? handleSaveEdit(sortOrder) : handleAddCategory(sortOrder))}
         onCancel={handleCancel}
         isEditing={!!editingId}
         isLoading={isCreating || isUpdating}
@@ -274,10 +348,18 @@ export default function CategoriesPage() {
           <Card key={category.id}>
             <CardHeader className="relative">
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <Package size={32} className="text-primary" />
-                  <div>
+                <div className="flex items-center gap-3 min-w-0">
+                  <Package size={32} className="text-primary shrink-0" />
+                  <div className="min-w-0 space-y-1">
                     <CardTitle className="text-lg">{category.name}</CardTitle>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge
+                        status={category.status === "inactive" ? "inactive" : "active"}
+                      />
+                      <Badge variant="outline" className="text-xs font-normal">
+                        Order: {category.sortOrder ?? "—"}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 {(category.icon || (category as any).icon) && (
