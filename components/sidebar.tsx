@@ -78,8 +78,8 @@ export function Sidebar() {
       icon: UsersRound,
       children: [
         { label: "Employees", href: "/employees", icon: UserCog },
-        { label: "Role Management", href: "/roles", icon: Shield },
-        { label: "Admin Users", href: "/admin-users", icon: ShieldCheck },
+        // { label: "Role Management", href: "/roles", icon: Shield },
+        // { label: "Admin Users", href: "/admin-users", icon: ShieldCheck },
       ],
     },
     { label: "Payments", href: "/payments", icon: CreditCard },

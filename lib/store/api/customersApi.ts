@@ -14,23 +14,23 @@ export interface CustomerResponse {
   customer: Customer | null
 }
 
-// Helper function to convert Firestore timestamp to date string
+// Helper function to convert Firestore timestamp to date string with time
 const convertTimestamp = (timestamp: any): string => {
-  if (!timestamp) return new Date().toISOString().split("T")[0]
+  if (!timestamp) return new Date().toISOString()
 
   if (timestamp instanceof Timestamp) {
-    return timestamp.toDate().toISOString().split("T")[0]
+    return timestamp.toDate().toISOString()
   }
 
   if (timestamp?.seconds) {
-    return new Date(timestamp.seconds * 1000).toISOString().split("T")[0]
+    return new Date(timestamp.seconds * 1000).toISOString()
   }
 
   if (typeof timestamp === "string") {
     return timestamp
   }
 
-  return new Date().toISOString().split("T")[0]
+  return new Date().toISOString()
 }
 
 // Helper function to convert Firestore document to Customer

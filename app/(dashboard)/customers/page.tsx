@@ -397,6 +397,7 @@ export default function CustomersPage() {
                       <th className="text-left py-3 px-4 font-semibold w-[200px]">Email</th>
                       <th className="text-left py-3 px-4 font-semibold w-[140px]">Phone</th>
                       <th className="text-left py-3 px-4 font-semibold w-[120px]">City</th>
+                      <th className="text-left py-3 px-4 font-semibold w-[150px]">Created Date</th>
                       {/* <th className="text-left py-3 px-4 font-semibold w-[100px]">Orders</th> */}
                       <th className="text-left py-3 px-4 font-semibold w-[120px]">Status</th>
                       <th className="text-left py-3 px-4 font-semibold w-[180px]">Action</th>
@@ -451,6 +452,20 @@ export default function CustomersPage() {
                             )}
                           </td>
                           <td className="py-3 px-4 truncate">{customer.city}</td>
+                          <td className="py-3 px-4">
+                            {customer.joinDate ? (
+                              new Date(customer.joinDate).toLocaleString('en-IN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
                           {/* <td className="py-3 px-4">{customer.totalOrders}</td> */}
                           <td className="py-3 px-4">
                             <StatusBadge status={customer.status} />

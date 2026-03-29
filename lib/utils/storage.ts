@@ -160,6 +160,42 @@ export async function deleteImageFromStorage(imageUrl: string): Promise<void> {
 }
 
 /**
+ * Delete file from Firebase Storage
+ * @param fileUrl - Full URL or storage path of the file to delete
+ * @returns Promise<void>
+ */
+export async function deleteFileFromStorage(fileUrl: string): Promise<void> {
+  try {
+    if (!storage) {
+      throw new Error("Firebase Storage is not initialized")
+    }
+
+    // If fileUrl is a full URL, extract the path
+    let storagePath = fileUrl
+    
+    if (fileUrl.startsWith("https://")) {
+      // Extract path from URL
+      // Format: https://firebasestorage.googleapis.com/v0/b/bucket/o/path?token=...
+      const urlParts = fileUrl.split("/o/")
+      if (urlParts.length > 1) {
+        storagePath = decodeURIComponent(urlParts[1].split("?")[0])
+      }
+    }
+
+    const storageRef = ref(storage, storagePath)
+    await deleteObject(storageRef)
+  } catch (error: any) {
+    // If file doesn't exist, that's okay (might have been deleted already)
+    if (error.code === "storage/object-not-found") {
+      console.warn(`⚠️ File not found in storage (might be already deleted):`, fileUrl)
+      return
+    }
+    console.error(`❌ Error deleting file from storage:`, error)
+    throw new Error(`Failed to delete file: ${error.message}`)
+  }
+}
+
+/**
  * Check if URL is a Firebase Storage URL
  */
 export function isFirebaseStorageUrl(url: string): boolean {

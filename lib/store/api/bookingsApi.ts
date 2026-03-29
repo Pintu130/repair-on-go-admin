@@ -20,29 +20,29 @@ export interface ReviewEligibleCategoriesResponse {
   categories: { categoryId: string; categoryName: string }[]
 }
 
-// Helper function to convert Firestore timestamp to date string (YYYY-MM-DD)
+// Helper function to convert Firestore timestamp to date string with time
 const convertTimestamp = (timestamp: any): string => {
-  if (!timestamp) return new Date().toISOString().split("T")[0]
+  if (!timestamp) return new Date().toISOString()
 
   if (timestamp instanceof Timestamp) {
-    return timestamp.toDate().toISOString().split("T")[0]
+    return timestamp.toDate().toISOString()
   }
 
   if (timestamp?.seconds) {
-    return new Date(timestamp.seconds * 1000).toISOString().split("T")[0]
+    return new Date(timestamp.seconds * 1000).toISOString()
   }
 
   if (typeof timestamp === "string") {
     try {
       const date = new Date(timestamp)
       if (!isNaN(date.getTime())) {
-        return date.toISOString().split("T")[0]
+        return date.toISOString()
       }
     } catch (e) {}
-    return timestamp.split("T")[0]
+    return timestamp
   }
 
-  return new Date().toISOString().split("T")[0]
+  return new Date().toISOString()
 }
 
 // Helper to convert Firestore timestamp to full ISO string (for statusTimestamps)
@@ -368,6 +368,42 @@ export const bookingsApi = createApi({
       providesTags: (result, error, customerUid) =>
         result ? [{ type: "ReviewEligibility", id: customerUid }] : [],
     }),
+    getBookingsByCustomerId: builder.query<BookingsResponse, string>({
+      queryFn: async (customerId: string) => {
+        try {
+          console.log(`🔥 Fetching bookings for customer ${customerId} from Firestore...`)
+          
+          const bookingsRef = collection(db, "bookings")
+          const q = query(bookingsRef, where("customerId", "==", customerId))
+          const querySnapshot = await getDocs(q)
+          
+          const bookings: Order[] = []
+          querySnapshot.forEach((doc) => {
+            const bookingData = convertFirestoreDocToOrder(doc.data(), doc.id)
+            bookings.push(bookingData)
+          })
+          
+          console.log(`✅ Found ${bookings.length} bookings for customer ${customerId}`)
+          
+          return {
+            data: {
+              bookings,
+              total: bookings.length,
+            },
+          }
+        } catch (error: any) {
+          console.error(`❌ Error fetching bookings for customer ${customerId}:`, error)
+          return {
+            error: {
+              status: "CUSTOM_ERROR",
+              error: error.message || "Failed to fetch customer bookings",
+              data: error.message || "Failed to fetch customer bookings",
+            },
+          }
+        }
+      },
+      providesTags: ["Bookings"],
+    }),
     updateBooking: builder.mutation<
       { success: boolean; message: string },
       { bookingId: string; updates: { status?: string; serviceReason?: string; serviceAmount?: number; cancelledAtStatus?: string } }
@@ -520,6 +556,7 @@ export const {
   useGetBookingsQuery,
   useGetBookingByIdQuery,
   useGetReviewEligibleCategoriesQuery,
+  useGetBookingsByCustomerIdQuery,
   useUpdateBookingMutation,
 } = bookingsApi
 

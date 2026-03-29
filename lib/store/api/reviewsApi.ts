@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
-import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from "firebase/firestore"
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp, query, where } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
 
 export interface Review {
@@ -96,6 +96,44 @@ export const reviewsApi = createApi({
               status: "CUSTOM_ERROR",
               error: error.message || "Failed to fetch reviews",
               data: error.message || "Failed to fetch reviews",
+            },
+          }
+        }
+      },
+      providesTags: ["Reviews"],
+    }),
+    getReviewsByCustomerId: builder.query<ReviewsResponse, string>({
+      queryFn: async (customerUid) => {
+        try {
+          const reviewsRef = collection(db, "reviews")
+          const q = query(reviewsRef, where("uid", "==", customerUid))
+          const querySnapshot = await getDocs(q)
+
+          const reviews: Review[] = querySnapshot.docs.map((docSnapshot) => {
+            const docData = docSnapshot.data()
+            return convertFirestoreDocToReview(docData, docSnapshot.id)
+          })
+
+          // Sort by date (newest first)
+          reviews.sort((a, b) => {
+            const dateA = new Date(a.date || a.createdAt || "").getTime()
+            const dateB = new Date(b.date || b.createdAt || "").getTime()
+            return dateB - dateA
+          })
+
+          return {
+            data: {
+              reviews,
+              total: reviews.length,
+            },
+          }
+        } catch (error: any) {
+          console.error("❌ Error fetching reviews by customer:", error)
+          return {
+            error: {
+              status: "CUSTOM_ERROR",
+              error: error.message || "Failed to fetch customer reviews",
+              data: error.message || "Failed to fetch customer reviews",
             },
           }
         }
@@ -371,6 +409,7 @@ export const reviewsApi = createApi({
 
 export const {
   useGetReviewsQuery,
+  useGetReviewsByCustomerIdQuery,
   useGetReviewByIdQuery,
   useCreateReviewMutation,
   useUpdateReviewMutation,
