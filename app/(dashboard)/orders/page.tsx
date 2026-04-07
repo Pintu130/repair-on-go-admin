@@ -14,7 +14,7 @@ import { OrderStatusBadge, statusLabels } from "@/components/common/order-status
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
 import { InfoCard } from "@/components/common/info-card"
 import { DateRangeFilter } from "@/components/common/date-range-filter"
-import { useGetBookingsQuery } from "@/lib/store/api/bookingsApi"
+import { useGetBookingsQuery, useDeleteBookingMutation } from "@/lib/store/api/bookingsApi"
 import { OrdersTableSkeleton } from "@/components/common/orders-table-skeleton"
 
 interface OrderItem extends Order {}
@@ -31,6 +31,9 @@ export default function OrdersPage() {
 
   // Fetch bookings from Firebase
   const { data: bookingsData, isLoading, error, refetch } = useGetBookingsQuery()
+  
+  // Delete booking mutation
+  const [deleteBooking, { isLoading: isDeleting }] = useDeleteBookingMutation()
   
   const orders: OrderItem[] = bookingsData?.bookings || []
   console.log("🚀 ~ OrdersPage ~ orders:111", orders)
@@ -95,13 +98,18 @@ export default function OrdersPage() {
     setIsDeleteOpen(true)
   }
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (deleteId) {
-      // TODO: Implement delete booking API call
-      // For now, just close the modal
-      setDeleteId(null)
-      // Optionally refetch data after delete
-      // refetch()
+      try {
+        await deleteBooking({ bookingId: deleteId }).unwrap()
+        setDeleteId(null)
+        setIsDeleteOpen(false)
+        // Refetch data after successful delete
+        refetch()
+      } catch (error: any) {
+        console.error("❌ Error deleting booking:", error)
+        // Keep modal open on error to show user the issue
+      }
     }
   }
 
@@ -333,9 +341,14 @@ export default function OrdersPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => handleDeleteClick(order.id)}
+                        disabled={isDeleting}
                         className="text-destructive cursor-pointer"
                       >
-                        <Trash2 size={14} />
+                        {isDeleting && deleteId === order.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
                       </Button>
                       <Link href={`/orders/${order.id}`}>
                         <Button variant="outline" size="sm" className="cursor-pointer shrink-0">
@@ -366,10 +379,11 @@ export default function OrdersPage() {
         onOpenChange={setIsDeleteOpen}
         onConfirm={handleDeleteConfirm}
         title="Delete Order"
-        description="Are you sure you want to delete this order? This action cannot be undone."
-        confirmText="Delete"
+        description="Are you sure you want to delete this order? This action cannot be undone and will also delete all related images and audio files."
+        confirmText={isDeleting ? "Deleting..." : "Delete"}
         cancelText="Cancel"
         variant="destructive"
+        isLoading={isDeleting}
       />
     </div>
   )

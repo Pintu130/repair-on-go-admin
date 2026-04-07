@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
-import { collection, getDocs, doc, getDoc, updateDoc, Timestamp, deleteField, query, where, setDoc, serverTimestamp } from "firebase/firestore"
-import { db } from "@/lib/firebase/config"
+import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, Timestamp, deleteField, query, where, setDoc, serverTimestamp } from "firebase/firestore"
+import { db, storage } from "@/lib/firebase/config"
+import { ref, deleteObject } from "firebase/storage"
 import type { Order } from "@/data/orders"
 
 const REVIEW_ELIGIBILITY_COLLECTION = "reviewEligibility"
@@ -548,6 +549,146 @@ export const bookingsApi = createApi({
         { type: "ReviewEligibility" },
       ],
     }),
+    deleteBooking: builder.mutation<
+      { success: boolean; message: string },
+      { bookingId: string }
+    >({
+      queryFn: async ({ bookingId }) => {
+        try {
+          console.log(`🔥 Deleting booking ${bookingId} from Firestore...`)
+
+          // Find the booking document by bookingId or document ID
+          const bookingsRef = collection(db, "bookings")
+          const querySnapshot = await getDocs(bookingsRef)
+          let bookingDocRef: ReturnType<typeof doc> | null = null
+          let bookingData: any = null
+          let customerUidForSync: string | null = null
+
+          for (const docSnapshot of querySnapshot.docs) {
+            const data = docSnapshot.data()
+            if (data.bookingId === bookingId || docSnapshot.id === bookingId) {
+              bookingDocRef = doc(db, "bookings", docSnapshot.id)
+              bookingData = data
+              customerUidForSync = (data.customerUid ?? "").toString().trim() || null
+              break
+            }
+          }
+
+          if (!bookingDocRef) {
+            try {
+              const docRef = doc(db, "bookings", bookingId)
+              const docSnap = await getDoc(docRef)
+              if (docSnap.exists()) {
+                bookingDocRef = docRef
+                bookingData = docSnap.data()
+                customerUidForSync = (bookingData?.customerUid ?? "").toString().trim() || null
+              }
+            } catch (e) {
+              // Document doesn't exist
+            }
+          }
+
+          if (!bookingDocRef || !bookingData) {
+            return {
+              error: {
+                status: "CUSTOM_ERROR",
+                error: "Booking not found",
+                data: "Booking not found",
+              },
+            }
+          }
+
+          // Helper function to extract file path from Firebase Storage URL
+          const extractFilePath = (url: string): string | null => {
+            try {
+              // Firebase Storage URLs typically look like:
+              // https://firebasestorage.googleapis.com/v0/b/BUCKET_NAME/o/PATH?token=TOKEN
+              // We need to extract the PATH part and decode it
+              const urlObj = new URL(url)
+              const pathWithToken = urlObj.pathname.split('/o/')[1]
+              if (!pathWithToken) return null
+              
+              // Remove the token parameter and decode URL encoding
+              const path = pathWithToken.split('?')[0]
+              return decodeURIComponent(path)
+            } catch (error) {
+              console.warn(`⚠️ Failed to extract path from URL: ${url}`, error)
+              return null
+            }
+          }
+
+          // Delete images from Firebase Storage if they exist
+          if (bookingData.images && Array.isArray(bookingData.images)) {
+            for (const imageUrl of bookingData.images) {
+              try {
+                const filePath = extractFilePath(imageUrl)
+                if (filePath && storage) {
+                  const imageRef = ref(storage, filePath)
+                  await deleteObject(imageRef)
+                  console.log(`✅ Deleted image: ${filePath}`)
+                } else {
+                  console.warn(`⚠️ Could not extract path for image: ${imageUrl}`)
+                }
+              } catch (error: any) {
+                console.warn(`⚠️ Failed to delete image ${imageUrl}:`, error.message)
+                // Continue with deletion even if image deletion fails
+              }
+            }
+          }
+
+          // Delete audio file from Firebase Storage if it exists
+          if (bookingData.audioUrl) {
+            try {
+              const filePath = extractFilePath(bookingData.audioUrl)
+              if (filePath && storage) {
+                const audioRef = ref(storage, filePath)
+                await deleteObject(audioRef)
+                console.log(`✅ Deleted audio: ${filePath}`)
+              } else {
+                console.warn(`⚠️ Could not extract path for audio: ${bookingData.audioUrl}`)
+              }
+            } catch (error: any) {
+              console.warn(`⚠️ Failed to delete audio ${bookingData.audioUrl}:`, error.message)
+              // Continue with deletion even if audio deletion fails
+            }
+          }
+
+          // Delete the Firestore document
+          await deleteDoc(bookingDocRef)
+
+          // Sync reviewEligibility collection after deletion
+          if (customerUidForSync) {
+            try {
+              await syncReviewEligibilityForUser(customerUidForSync)
+            } catch (syncErr: any) {
+              console.warn("⚠️ reviewEligibility sync failed:", syncErr)
+            }
+          }
+
+          console.log(`✅ Successfully deleted booking ${bookingId}`)
+
+          return {
+            data: {
+              success: true,
+              message: "Booking deleted successfully",
+            },
+          }
+        } catch (error: any) {
+          console.error(`❌ Error deleting booking ${bookingId}:`, error)
+          return {
+            error: {
+              status: "CUSTOM_ERROR",
+              error: error.message || "Failed to delete booking",
+              data: error.message || "Failed to delete booking",
+            },
+          }
+        }
+      },
+      invalidatesTags: (result, error) => [
+        { type: "Bookings" },
+        { type: "ReviewEligibility" },
+      ],
+    }),
   }),
 })
 
@@ -558,5 +699,6 @@ export const {
   useGetReviewEligibleCategoriesQuery,
   useGetBookingsByCustomerIdQuery,
   useUpdateBookingMutation,
+  useDeleteBookingMutation,
 } = bookingsApi
 
