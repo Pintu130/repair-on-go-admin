@@ -1,14 +1,25 @@
+# Block all search engine indexing
+User-agent: *
+Disallow: /
+
+# Block all crawlers from accessing any part of the site
 User-agent: Googlebot
-Allow: /
+Disallow: /
 
 User-agent: Bingbot
-Allow: /
+Disallow: /
 
-User-agent: Twitterbot
-Allow: /
+User-agent: Slurp
+Disallow: /
 
-User-agent: facebookexternalhit
-Allow: /
+User-agent: DuckDuckBot
+Disallow: /
 
-User-agent: *
-Allow: /
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+# No sitemap provided
+# Sitemap: (intentionally omitted)

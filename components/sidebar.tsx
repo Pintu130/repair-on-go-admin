@@ -28,6 +28,7 @@ import {
   MessageCircle,
   FileSearch,
   Image as ImageIcon,
+  Package,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -83,6 +84,7 @@ export function Sidebar() {
       ],
     },
     { label: "Payments", href: "/payments", icon: CreditCard },
+    { label: "Brands", href: "/brands", icon: Package },
     { label: "Gallery", href: "/gallery", icon: ImageIcon },
     { label: "FAQ", href: "/faq", icon: HelpCircle },
     { label: "Contact", href: "/contact", icon: MessageCircle },
