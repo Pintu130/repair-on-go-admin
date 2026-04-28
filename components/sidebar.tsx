@@ -29,6 +29,7 @@ import {
   FileSearch,
   Image as ImageIcon,
   Package,
+  FileText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -84,18 +85,35 @@ export function Sidebar() {
       ],
     },
     { label: "Payments", href: "/payments", icon: CreditCard },
-    { label: "Brands", href: "/brands", icon: Package },
-    { label: "Gallery", href: "/gallery", icon: ImageIcon },
-    { label: "FAQ", href: "/faq", icon: HelpCircle },
-    { label: "Contact", href: "/contact", icon: MessageCircle },
     {
-      label: "Web Configurations",
-      icon: Globe,
+      label: "System",
+      icon: Settings,
       children: [
+        { label: "Brands", href: "/brands", icon: Package },
+        { label: "Gallery", href: "/gallery", icon: ImageIcon },
+        { label: "FAQ", href: "/faq", icon: HelpCircle },
+        { label: "Contact", href: "/contact", icon: MessageCircle },
         { label: "SEO", href: "/seo", icon: Search },
         { label: "Web Settings", href: "/web-settings", icon: Settings },
       ],
     },
+    {
+      label: "CMS Pages",
+      icon: FileText,
+      children: [
+        { label: "Terms & Conditions", href: "/cms-pages/terms-conditions", icon: FileText },
+        { label: "Privacy Policy", href: "/cms-pages/privacy-policy", icon: FileText },
+        { label: "Refund Policy", href: "/cms-pages/refund-policy", icon: FileText },
+      ],
+    }
+    // {
+    //   label: "Web Configurations",
+    //   icon: Globe,
+    //   children: [
+    //     { label: "SEO", href: "/seo", icon: Search },
+    //     { label: "Web Settings", href: "/web-settings", icon: Settings },
+    //   ],
+    // },
   ]
 
   // Find the active parent based on current pathname
