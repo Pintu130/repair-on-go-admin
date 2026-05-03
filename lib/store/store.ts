@@ -12,6 +12,7 @@ import { webSettingsApi } from "./api/webSettingsApi"
 import { galleryApi } from "./api/galleryApi"
 import { employeesApi } from "./api/employeesApi"
 import { brandsApi } from "./api/brandsApi"
+import { cmsApi } from "./api/cmsApi"
 
 export const store = configureStore({
   reducer: {
@@ -28,9 +29,10 @@ export const store = configureStore({
     [galleryApi.reducerPath]: galleryApi.reducer,
     [employeesApi.reducerPath]: employeesApi.reducer,
     [brandsApi.reducerPath]: brandsApi.reducer,
+    [cmsApi.reducerPath]: cmsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(authApi.middleware, customersApi.middleware, couponsApi.middleware, faqsApi.middleware, contactsApi.middleware, categoriesApi.middleware, reviewsApi.middleware, bookingsApi.middleware, categoryRequestsApi.middleware, webSettingsApi.middleware, galleryApi.middleware, employeesApi.middleware, brandsApi.middleware),
+    getDefaultMiddleware().concat(authApi.middleware, customersApi.middleware, couponsApi.middleware, faqsApi.middleware, contactsApi.middleware, categoriesApi.middleware, reviewsApi.middleware, bookingsApi.middleware, categoryRequestsApi.middleware, webSettingsApi.middleware, galleryApi.middleware, employeesApi.middleware, brandsApi.middleware, cmsApi.middleware),
 })
 
 export type RootState = ReturnType<typeof store.getState>

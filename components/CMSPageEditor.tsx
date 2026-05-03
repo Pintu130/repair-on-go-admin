@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Save, Eye, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import AdvancedCKEditor from './AdvancedCKEditor';
+import { useGetCMSPageQuery, useUpdateCMSPageMutation } from '@/lib/store/api/cmsApi';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CMSPageEditorProps {
   title: string;
@@ -15,8 +16,8 @@ interface CMSPageEditorProps {
   pageKey?: string;
 }
 
-// Static storage for CMS content
-const staticContentStorage: Record<string, string> = {
+// Default content for CMS pages
+const defaultContent: Record<string, string> = {
   'terms-conditions': `<h1>Terms & Conditions</h1>
 <p>Welcome to RepairOnGo. By using our services, you agree to these terms and conditions.</p>
 <h2>1. Service Agreement</h2>
@@ -50,14 +51,22 @@ export default function CMSPageEditor({
   pageKey = 'cms-page'
 }: CMSPageEditorProps) {
   const { toast } = useToast();
-  const [content, setContent] = useState(() => {
-    // Load from static storage or use initial content
-    return staticContentStorage[pageKey] || initialContent;
-  });
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [content, setContent] = useState(defaultContent[pageKey] || initialContent);
   const [isDirty, setIsDirty] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
+
+  // Fetch CMS page data from Firebase
+  const { data: pageData, isLoading: isLoadingPage, error: pageError } = useGetCMSPageQuery(pageKey);
+  
+  // Update mutation
+  const [updateCMSPage, { isLoading: isSaving }] = useUpdateCMSPageMutation();
+
+  // Load content from Firebase when data is available
+  useEffect(() => {
+    if (pageData?.page?.content) {
+      setContent(pageData.page.content);
+    }
+  }, [pageData]);
 
   const handleContentChange = (event: any, editor: any) => {
     const data = editor.getData();
@@ -66,27 +75,52 @@ export default function CMSPageEditor({
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
-    
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Save to static storage
-    staticContentStorage[pageKey] = content;
-    
-    setLastSaved(new Date());
-    setIsDirty(false);
-    toast({
-      title: 'Content saved successfully!',
-      description: 'Your changes have been saved.',
-    });
-    
-    setIsSaving(false);
+    try {
+      const result = await updateCMSPage({ 
+        pageId: pageKey, 
+        content: content 
+      }).unwrap();
+      
+      if (result.success) {
+        setIsDirty(false);
+        toast({
+          title: 'Content saved successfully!',
+          description: 'Your changes have been saved to Firebase.',
+        });
+      }
+    } catch (error) {
+      console.error('Error saving CMS page:', error);
+      toast({
+        title: 'Error saving content',
+        description: 'Failed to save changes. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handlePreview = () => {
     setPreviewMode(!previewMode);
   };
+
+  // Show loading state
+  if (isLoadingPage) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">{title}</h1>
+          <p className="text-muted-foreground mt-1">{description}</p>
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-[500px] w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -104,7 +138,7 @@ export default function CMSPageEditor({
                 Unsaved
               </Badge>
             )}
-            {lastSaved && !isDirty && (
+            {!isDirty && (
               <Badge variant="outline" className="text-green-600 border-green-600">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Saved
@@ -135,9 +169,9 @@ export default function CMSPageEditor({
               {previewMode ? 'Edit Mode' : 'Preview Mode'}
             </Button>
             <div className="flex-1" />
-            {lastSaved && (
+            {pageData?.page?.updatedAt && (
               <p className="text-sm text-muted-foreground self-center">
-                Last saved: {lastSaved.toLocaleString()}
+                Last saved: {new Date(pageData.page.updatedAt).toLocaleString()}
               </p>
             )}
           </div>
