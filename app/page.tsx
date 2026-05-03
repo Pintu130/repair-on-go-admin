@@ -10,6 +10,7 @@ import { useLoginMutation } from "@/lib/store/api/authApi"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
+import Head from "next/head"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -71,8 +72,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center p-4">
-      <Card className="w-full max-w-5xl overflow-hidden">
+    <>
+      <Head>
+        <title>Admin Login - RepairOnGo</title>
+        <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+        <meta name="googlebot" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+      </Head>
+      <div className="min-h-screen bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center p-4">
+        <Card className="w-full max-w-5xl overflow-hidden">
         <div className="grid md:grid-cols-2">
           <div className="hidden md:flex items-center justify-center bg-muted/60 p-8">
             <div className="w-full max-w-sm">
@@ -151,5 +158,6 @@ export default function LoginPage() {
         </div>
       </Card>
     </div>
+    </>
   )
 }
