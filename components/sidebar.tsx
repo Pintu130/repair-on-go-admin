@@ -30,6 +30,7 @@ import {
   Image as ImageIcon,
   Package,
   FileText,
+  Receipt,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -85,6 +86,7 @@ export function Sidebar() {
       ],
     },
     { label: "Payments", href: "/payments", icon: CreditCard },
+    { label: "Expenses", href: "/expenses", icon: Receipt },
     {
       label: "System",
       icon: Settings,

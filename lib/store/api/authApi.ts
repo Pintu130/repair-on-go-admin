@@ -24,8 +24,9 @@ export interface LoginResponse {
   message?: string
 }
 
-// Allowed roles for admin access
-const ALLOWED_ROLES = ["superadmin", "manager", "admin"]
+// Specific allowed admin UID and role from environment variables
+const SPECIFIC_ADMIN_UID = process.env.NEXT_PUBLIC_ADMIN_UID || ""
+const REQUIRED_ADMIN_ROLE = process.env.NEXT_PUBLIC_ADMIN_ROLE || "admin"
 
 export const authApi = createApi({
   reducerPath: "authApi",
@@ -82,16 +83,18 @@ export const authApi = createApi({
             ...docData,
           }
           
-          console.log("🚀 ~ User Data from Firestore:", userData)
 
-          // Step 3: Check if user has allowed role
-          if (!userData.role || !ALLOWED_ROLES.includes(userData.role.toLowerCase())) {
+          // Step 3: Strict check - Only allow specific UID with admin role
+          const isValidUID = userData.uid === SPECIFIC_ADMIN_UID
+          const isValidRole = userData.role === REQUIRED_ADMIN_ROLE
+
+          if (!isValidUID || !isValidRole) {
             await auth.signOut()
             return {
               error: {
                 status: "CUSTOM_ERROR",
-                error: "You don't have permission to access admin panel",
-                data: "You don't have permission to access admin panel",
+                error: "Access denied. Only authorized admin can login.",
+                data: "Access denied. Only authorized admin can login.",
               },
             }
           }
