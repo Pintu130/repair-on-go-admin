@@ -7,9 +7,6 @@ import {
   Line,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -17,129 +14,34 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { type Order } from "@/data/orders"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Clock, TrendingUp, Users, Zap } from "lucide-react"
-import { calculateStats } from "@/utils/stats" // Assuming this function is defined elsewhere
 import { StatCard } from "@/components/stat-card"
 import { useGetBookingsQuery } from "@/lib/store/api/bookingsApi"
+import { useGetCustomersQuery } from "@/lib/store/api/customersApi"
+import { useGetEmployeesQuery } from "@/lib/store/api/employeesApi"
 
-// Generate Revenue Trend data based on time period
-const generateChartData = (period: "week" | "month" | "year") => {
-  const baseData = {
-    week: [
-      { label: "Mon", revenue: 2400 },
-      { label: "Tue", revenue: 1398 },
-      { label: "Wed", revenue: 9800 },
-      { label: "Thu", revenue: 3908 },
-      { label: "Fri", revenue: 4800 },
-      { label: "Sat", revenue: 3800 },
-      { label: "Sun", revenue: 4300 },
-    ],
-    month: [
-      { label: "Week 1", revenue: 4000 },
-      { label: "Week 2", revenue: 3000 },
-      { label: "Week 3", revenue: 2000 },
-      { label: "Week 4", revenue: 2780 },
-    ],
-    year: [
-      { label: "Jan", revenue: 4000 },
-      { label: "Feb", revenue: 3000 },
-      { label: "Mar", revenue: 2000 },
-      { label: "Apr", revenue: 2780 },
-      { label: "May", revenue: 1890 },
-      { label: "Jun", revenue: 2390 },
-      { label: "Jul", revenue: 3490 },
-      { label: "Aug", revenue: 4200 },
-      { label: "Sep", revenue: 3100 },
-      { label: "Oct", revenue: 2800 },
-      { label: "Nov", revenue: 3900 },
-      { label: "Dec", revenue: 4500 },
-    ],
-  }
-  return baseData[period]
-}
 
-// Generate Category data based on time period
-const generateCategoryData = (period: "week" | "month" | "year") => {
-  const baseData = {
-    week: [
-      { name: "Plumbing", value: 42 },
-      { name: "Electrical", value: 28 },
-      { name: "Carpentry", value: 18 },
-      { name: "Painting", value: 12 },
-    ],
-    month: [
-      { name: "Plumbing", value: 35 },
-      { name: "Electrical", value: 25 },
-      { name: "Carpentry", value: 20 },
-      { name: "Painting", value: 20 },
-    ],
-    year: [
-      { name: "Plumbing", value: 38 },
-      { name: "Electrical", value: 22 },
-      { name: "Carpentry", value: 24 },
-      { name: "Painting", value: 16 },
-    ],
-  }
-  return baseData[period]
-}
 
-// Generate Status data based on time period
-const generateStatusData = (period: "week" | "month" | "year") => {
-  const baseData = {
-    week: [
-      { name: "Completed", value: 65 },
-      { name: "In Progress", value: 25 },
-      { name: "Pending", value: 10 },
-    ],
-    month: [
-      { name: "Completed", value: 60 },
-      { name: "In Progress", value: 25 },
-      { name: "Pending", value: 15 },
-    ],
-    year: [
-      { name: "Completed", value: 70 },
-      { name: "In Progress", value: 20 },
-      { name: "Pending", value: 10 },
-    ],
-  }
-  return baseData[period]
-}
-
-// Generate Employee Performance data based on time period
-const generateEmployeeData = (period: "week" | "month" | "year") => {
-  const baseData = {
-    week: [
-      { name: "John", performance: 88 },
-      { name: "Sarah", performance: 92 },
-      { name: "Mike", performance: 78 },
-      { name: "Emma", performance: 85 },
-    ],
-    month: [
-      { name: "John", performance: 85 },
-      { name: "Sarah", performance: 90 },
-      { name: "Mike", performance: 75 },
-      { name: "Emma", performance: 88 },
-    ],
-    year: [
-      { name: "John", performance: 82 },
-      { name: "Sarah", performance: 88 },
-      { name: "Mike", performance: 80 },
-      { name: "Emma", performance: 85 },
-      { name: "David", performance: 78 },
-      { name: "Lisa", performance: 90 },
-    ],
-  }
-  return baseData[period]
-}
-
-const COLORS = ["#ED2C2C", "#3B82F6", "#10B981", "#F59E0B"]
-
-const getLatestBookings = (orders: Order[]) => {
+const getLatestBookings = (orders: Order[], timePeriod?: "today" | "week" | "month" | "year") => {
   if (!orders || !Array.isArray(orders)) {
     return []
   }
-  return [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
+  
+  let filteredOrders = orders
+  
+  if (timePeriod === "today") {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    filteredOrders = orders.filter(order => {
+      const orderDate = new Date(order.date)
+      orderDate.setHours(0, 0, 0, 0)
+      return orderDate.getTime() === today.getTime()
+    })
+  }
+  
+  return [...filteredOrders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5)
 }
 
 const getStatusColor = (status: string) => {
@@ -154,17 +56,158 @@ const getStatusColor = (status: string) => {
 }
 
 export default function DashboardPage() {
-  const [timePeriod, setTimePeriod] = useState<"week" | "month" | "year">("month")
+  const [timePeriod, setTimePeriod] = useState<"today" | "week" | "month" | "year">("month")
   
-  // Fetch bookings from API
-  const { data: bookingsData, isLoading } = useGetBookingsQuery()
+  const { data: bookingsData, isLoading: bookingsLoading } = useGetBookingsQuery()
+  const { data: customersData, isLoading: customersLoading } = useGetCustomersQuery()
+  const { data: employeesData, isLoading: employeesLoading } = useGetEmployeesQuery()
+  
   const orders: Order[] = bookingsData?.bookings || []
+  const customers = customersData?.customers || []
+  const employees = employeesData?.employees || []
   
-  const chartData = generateChartData(timePeriod)
-  const categoryData = generateCategoryData(timePeriod)
-  const statusData = generateStatusData(timePeriod)
-  const employeeData = generateEmployeeData(timePeriod)
-  const stats = calculateStats(orders) // Calculate stats from API data
+  // Calculate statistics from real data with proper filtering
+  const totalRevenue = orders
+    .filter(order => order.paymentStatus === "paid")
+    .reduce((sum, order) => sum + (order.amount || 0), 0)
+  const totalCustomers = customers.filter(customer => customer.role === "customer" || !customer.role).length
+  const totalEmployees = employees.filter(employee => employee.role === "employee" || !employee.role).length
+  const totalOrders = orders.length
+  const canceledOrders = orders.filter(order => order.status === "cancelled").length
+  
+  // Generate dynamic Revenue Trend data from bookings
+  const chartData = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    if (!orders.length) {
+      if (timePeriod === "today") {
+        return Array.from({ length: 24 }, (_, i) => ({
+          label: `${i}:00`,
+          revenue: 0
+        }))
+      } else if (timePeriod === "week") {
+        return [
+          { label: "Mon", revenue: 0 },
+          { label: "Tue", revenue: 0 },
+          { label: "Wed", revenue: 0 },
+          { label: "Thu", revenue: 0 },
+          { label: "Fri", revenue: 0 },
+          { label: "Sat", revenue: 0 },
+          { label: "Sun", revenue: 0 },
+        ]
+      } else if (timePeriod === "month") {
+        return [
+          { label: "Week 1", revenue: 0 },
+          { label: "Week 2", revenue: 0 },
+          { label: "Week 3", revenue: 0 },
+          { label: "Week 4", revenue: 0 },
+        ]
+      } else {
+        return [
+          { label: "Jan", revenue: 0 },
+          { label: "Feb", revenue: 0 },
+          { label: "Mar", revenue: 0 },
+          { label: "Apr", revenue: 0 },
+          { label: "May", revenue: 0 },
+          { label: "Jun", revenue: 0 },
+          { label: "Jul", revenue: 0 },
+          { label: "Aug", revenue: 0 },
+          { label: "Sep", revenue: 0 },
+          { label: "Oct", revenue: 0 },
+          { label: "Nov", revenue: 0 },
+          { label: "Dec", revenue: 0 },
+        ]
+      }
+    }
+    
+    const revenueData: Record<string, number> = {}
+    
+    orders.forEach(order => {
+      if (order.paymentStatus !== "paid") return
+      
+      const orderDate = new Date(order.date)
+      
+      if (timePeriod === "today") {
+        const orderDateStart = new Date(orderDate)
+        orderDateStart.setHours(0, 0, 0, 0)
+        
+        if (orderDateStart.getTime() !== today.getTime()) return
+        
+        const hour = orderDate.getHours()
+        const label = `${hour}:00`
+        revenueData[label] = (revenueData[label] || 0) + (order.amount || 0)
+      } else {
+        let label: string
+        
+        if (timePeriod === "week") {
+          const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+          label = days[orderDate.getDay()]
+        } else if (timePeriod === "month") {
+          const weekNum = Math.ceil(orderDate.getDate() / 7)
+          label = `Week ${weekNum}`
+        } else {
+          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+          label = months[orderDate.getMonth()]
+        }
+        
+        revenueData[label] = (revenueData[label] || 0) + (order.amount || 0)
+      }
+    })
+    
+    let labels: string[]
+    if (timePeriod === "today") {
+      labels = Array.from({ length: 24 }, (_, i) => `${i}:00`)
+    } else if (timePeriod === "week") {
+      labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    } else if (timePeriod === "month") {
+      labels = ["Week 1", "Week 2", "Week 3", "Week 4"]
+    } else {
+      labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    }
+    
+    return labels.map(label => ({
+      label,
+      revenue: revenueData[label] || 0
+    }))
+  }, [orders, timePeriod])
+  
+  // Generate dynamic Bookings by Category data
+  const categoryData = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    let filteredOrders = orders
+    
+    if (timePeriod === "today") {
+      filteredOrders = orders.filter(order => {
+        const orderDate = new Date(order.date)
+        orderDate.setHours(0, 0, 0, 0)
+        return orderDate.getTime() === today.getTime()
+      })
+    }
+    
+    if (!filteredOrders.length) {
+      return [
+        { name: "Plumbing", value: 0 },
+        { name: "Electrical", value: 0 },
+        { name: "Carpentry", value: 0 },
+        { name: "Painting", value: 0 },
+      ]
+    }
+    
+    const categoryCounts: Record<string, number> = {}
+    
+    filteredOrders.forEach(order => {
+      const category = order.category || "Other"
+      categoryCounts[category] = (categoryCounts[category] || 0) + 1
+    })
+    
+    return Object.entries(categoryCounts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6)
+  }, [orders, timePeriod])
 
   return (
     <div className="space-y-6">
@@ -178,42 +221,42 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
           title="Total Revenue"
-          value={`₹${stats.totalRevenue.toLocaleString("en-IN")}`}
+          value={`₹${totalRevenue.toLocaleString("en-IN")}`}
           subtitle="+20.1% from last month"
           subtitleClassName="text-xs text-green-600"
           icon={<TrendingUp className="text-primary" size={18} />}
         />
         <StatCard
           title="Total Customers"
-          value="1,234"
+          value={totalCustomers.toLocaleString("en-IN")}
           subtitle="+15% from last month"
           subtitleClassName="text-xs text-green-600"
           icon={<Users className="text-primary" size={18} />}
         />
         <StatCard
           title="Total Employees"
-          value="42"
+          value={totalEmployees.toLocaleString("en-IN")}
           subtitle="Active staff members"
           subtitleClassName="text-xs text-muted-foreground"
           icon={<Zap className="text-primary" size={18} />}
         />
         <StatCard
           title="Total Orders"
-          value="3,456"
+          value={totalOrders.toLocaleString("en-IN")}
           subtitle="+8% from last month"
           subtitleClassName="text-xs text-green-600"
           icon={<Clock className="text-primary" size={18} />}
         />
         <StatCard
           title="Canceled Orders"
-          value="89"
-          subtitle="2.6% of total orders"
+          value={canceledOrders.toLocaleString("en-IN")}
+          subtitle={totalOrders > 0 ? `${((canceledOrders / totalOrders) * 100).toFixed(1)}% of total orders` : "0% of total orders"}
           subtitleClassName="text-xs text-muted-foreground"
         />
       </div>
 
       <div className="flex gap-2">
-        {(["week", "month", "year"] as const).map((period) => (
+        {(["today", "week", "month", "year"] as const).map((period) => (
           <button
             key={period}
             onClick={() => setTimePeriod(period)}
@@ -229,7 +272,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-6">
+        {/* Revenue Trend - Full Width */}
         <Card>
           <CardHeader>
             <CardTitle>Revenue Trend ({timePeriod})</CardTitle>
@@ -240,13 +284,14 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="label" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "Revenue"]} />
                 <Line type="monotone" dataKey="revenue" stroke="#ED2C2C" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* Bookings by Category - Full Width */}
         <Card>
           <CardHeader>
             <CardTitle>Bookings by Category ({timePeriod})</CardTitle>
@@ -257,43 +302,8 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip formatter={(value: number) => [`${value} bookings`, "Count"]} />
                 <Bar dataKey="value" fill="#ED2C2C" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Booking Status ({timePeriod})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={statusData} cx="50%" cy="50%" labelLine={false} label>
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Employee Performance ({timePeriod})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={employeeData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="performance" fill="#ED2C2C" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -309,14 +319,14 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {getLatestBookings(orders).map((booking) => (
+            {getLatestBookings(orders, timePeriod).map((booking) => (
               <div
                 key={booking.id}
                 className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm">{booking.id}</p>
+                    <p className="font-semibold text-sm">{booking.bookingId || booking.id}</p>
                     <Badge className={getStatusColor(booking.status)}>
                       {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                     </Badge>
@@ -330,6 +340,11 @@ export default function DashboardPage() {
                 </div>
               </div>
             ))}
+            {getLatestBookings(orders, timePeriod).length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No bookings {timePeriod === "today" ? "today" : `for this ${timePeriod}`}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

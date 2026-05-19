@@ -13,6 +13,7 @@ export interface Customer {
   totalOrders: number
   status: "active" | "inactive"
   joinDate: string
+  role?: string
   // Address Information
   houseNo?: string
   roadName?: string
