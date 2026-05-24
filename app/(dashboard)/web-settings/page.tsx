@@ -20,6 +20,8 @@ import {
   LifeBuoy,
   Globe,
   Clock,
+  Youtube,
+  MessageCircle,
 } from "lucide-react"
 import { ImageUploadField } from "@/components/common/image-upload-field"
 import { InputField } from "@/components/common/input-field"
@@ -41,6 +43,8 @@ export default function WebSettingsPage() {
     twitter: "https://twitter.com/repaongo",
     instagram: "https://instagram.com/repaongo",
     linkedin: "https://linkedin.com/company/repaongo",
+    youtube: "",
+    whatsapp: "",
     logo: "",
     favicon: "",
     happyCustomers: "1,000+",
@@ -72,6 +76,21 @@ export default function WebSettingsPage() {
     const digits = phone.replace(/\D/g, "")
     return digits.length >= 7
   }
+  function isValidWhatsApp(whatsapp: string) {
+    if (!whatsapp) return true
+    // Check if it's a valid WhatsApp URL
+    if (whatsapp.includes("wa.me") || whatsapp.includes("whatsapp")) {
+      try {
+        const u = new URL(whatsapp)
+        return u.protocol === "http:" || u.protocol === "https:"
+      } catch {
+        return false
+      }
+    }
+    // Or check if it's a valid phone number
+    const digits = whatsapp.replace(/\D/g, "")
+    return digits.length >= 7
+  }
   function isValidUrl(url: string) {
     if (!url) return true
     try {
@@ -85,11 +104,13 @@ export default function WebSettingsPage() {
   const validationRules = useMemo(
     () => ({
       email: (v: string) => (isValidEmail(v) ? "" : "Invalid email address"),
-      phone: (v: string) => (isValidPhone(v) ? "" : "Invalid phone number"),
+      phone: (v: string) => (isValidPhone(v) ? "" : "Phone must have at least 7 digits"),
       facebook: (v: string) => (isValidUrl(v) ? "" : "Must be a valid URL"),
       twitter: (v: string) => (isValidUrl(v) ? "" : "Must be a valid URL"),
       instagram: (v: string) => (isValidUrl(v) ? "" : "Must be a valid URL"),
       linkedin: (v: string) => (isValidUrl(v) ? "" : "Must be a valid URL"),
+      youtube: (v: string) => (isValidUrl(v) ? "" : "Must be a valid URL"),
+      whatsapp: (v: string) => (isValidWhatsApp(v) ? "" : "Must be a valid WhatsApp URL or phone number with at least 7 digits"),
     }),
     []
   )
@@ -160,6 +181,15 @@ export default function WebSettingsPage() {
               icon={Phone}
             />
             {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+            <InputField
+              label="WhatsApp"
+              name="whatsapp"
+              type="url"
+              value={settings.whatsapp}
+              onChange={handleChange as any}
+              icon={MessageCircle}
+            />
+            {errors.whatsapp && <p className="text-xs text-destructive">{errors.whatsapp}</p>}
             <TextareaField
               label="Address"
               name="address"
@@ -182,12 +212,14 @@ export default function WebSettingsPage() {
                 twitter: Twitter,
                 instagram: Instagram,
                 linkedin: Linkedin,
+                youtube: Youtube,
               } as const
               return [
                 { key: "facebook", label: "Facebook" },
                 { key: "twitter", label: "Twitter" },
                 { key: "instagram", label: "Instagram" },
                 { key: "linkedin", label: "LinkedIn" },
+                { key: "youtube", label: "YouTube" },
               ].map(({ key, label }) => {
                 const IconComp = socialIconComponents[key as keyof typeof socialIconComponents]
                 return (
@@ -203,12 +235,13 @@ export default function WebSettingsPage() {
                 )
               })
             })()}
-            {(errors.facebook || errors.twitter || errors.instagram || errors.linkedin) && (
+            {(errors.facebook || errors.twitter || errors.instagram || errors.linkedin || errors.youtube) && (
               <div className="space-y-1">
                 {errors.facebook && <p className="text-xs text-destructive">Facebook: {errors.facebook}</p>}
                 {errors.twitter && <p className="text-xs text-destructive">Twitter: {errors.twitter}</p>}
                 {errors.instagram && <p className="text-xs text-destructive">Instagram: {errors.instagram}</p>}
                 {errors.linkedin && <p className="text-xs text-destructive">LinkedIn: {errors.linkedin}</p>}
+                {errors.youtube && <p className="text-xs text-destructive">YouTube: {errors.youtube}</p>}
               </div>
             )}
           </CardContent>
@@ -281,12 +314,6 @@ export default function WebSettingsPage() {
         <Button size="lg" onClick={handleSave} disabled={isSaving || isLoading} className="cursor-pointer">
           <Save size={18} className="mr-2" /> Save Settings
         </Button>
-        {/* {saved && (
-          <div className="flex items-center gap-2 text-green-600">
-            <AlertCircle size={18} />
-            <p className="text-sm">Settings saved successfully!</p>
-          </div>
-        )} */}
       </div>
     </div>
   )
