@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore"
 import { db } from "@/lib/firebase/config"
 import { uploadImageToStorage, deleteImageFromStorage, isFirebaseStorageUrl } from "@/lib/utils/storage"
+import { generateSlug } from "@/lib/utils"
 
 export type CategoryStatus = "active" | "inactive"
 
@@ -26,6 +27,7 @@ export interface CategoryReferenceImages {
 export interface Category {
   id: string
   name: string
+  slug?: string
   description: string
   icon: string
   seoImage: string
@@ -253,6 +255,7 @@ const convertFirestoreDocToCategory = (docData: any, docId: string): Category =>
   return {
     id: docId || docData.id || "",
     name: docData.name || "",
+    slug: docData.slug || "",
     description: docData.description || "",
     icon: docData.icon || "",
     seoImage: docData.seoImage || "",
@@ -481,6 +484,7 @@ export const categoriesApi = createApi({
           const firestoreData: any = {
             id: categoryId,
             name: categoryData.name.trim(),
+            slug: generateSlug(categoryData.name.trim()),
             description: categoryData.description?.trim() || "",
             seoTitle: categoryData.seoTitle?.trim() || "",
             seoDescription: categoryData.seoDescription?.trim() || "",
@@ -692,7 +696,9 @@ export const categoriesApi = createApi({
           }
 
           if (categoryData.name !== undefined) {
-            updateData.name = categoryData.name.trim()
+            const trimmedName = categoryData.name.trim()
+            updateData.name = trimmedName
+            updateData.slug = generateSlug(trimmedName)
           }
           if (categoryData.description !== undefined) {
             updateData.description = categoryData.description.trim()

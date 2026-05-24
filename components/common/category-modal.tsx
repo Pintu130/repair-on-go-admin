@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Upload, X, Image as ImageIcon, Loader2, Plus, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { generateSlug } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -20,6 +21,7 @@ export type CategoryFormStatus = "active" | "inactive"
 
 interface CategoryFormData {
   name: string
+  slug?: string
   description: string
   icon: string
   seoImage: string
@@ -275,8 +277,32 @@ export function CategoryModal({
                 type="text"
                 placeholder="Category Name"
                 value={formData.name}
-                onChange={(e) => onFormDataChange({ ...formData, name: e.target.value })}
+                onChange={(e) => {
+                  const name = e.target.value
+                  onFormDataChange({ 
+                    ...formData, 
+                    name,
+                    slug: generateSlug(name)
+                  })
+                }}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category-slug">
+                Slug (Auto-generated)
+              </Label>
+              <Input
+                id="category-slug"
+                type="text"
+                placeholder="auto-generated-slug"
+                value={formData.slug || ""}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">
+                Automatically generated from category name
+              </p>
             </div>
 
             <div className="space-y-2">

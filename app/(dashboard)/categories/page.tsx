@@ -27,6 +27,7 @@ export default function CategoriesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
+    slug: "",
     description: "",
     icon: "",
     seoImage: "",
@@ -102,6 +103,7 @@ export default function CategoriesPage() {
     setEditingId(null)
     setFormData({
       name: "",
+      slug: "",
       description: "",
       icon: "",
       seoImage: "",
@@ -157,6 +159,7 @@ export default function CategoriesPage() {
     setEditingId(category.id)
     setFormData({
       name: category.name,
+      slug: category.slug || "",
       description: category.description,
       icon: category.icon,
       seoImage: category.seoImage,
