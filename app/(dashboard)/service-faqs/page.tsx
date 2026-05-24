@@ -209,7 +209,7 @@ export default function ServiceFaqsPage() {
             Manage frequently asked questions for each service category
           </p>
         </div>
-        <Button onClick={() => setIsAdding(true)} className="gap-2">
+        <Button onClick={() => setIsAdding(true)} className="gap-2 cursor-pointer">
           <Plus className="h-4 w-4" />
           Add Service FAQs
         </Button>
@@ -270,7 +270,7 @@ export default function ServiceFaqsPage() {
                             size="sm"
                             onClick={() => handleEdit(serviceFaq)}
                             disabled={isUpdating || isDeleting}
-                            className="gap-1"
+                            className="gap-1 cursor-pointer"
                           >
                             <Edit2 className="h-4 w-4" />
                             Edit
@@ -280,7 +280,7 @@ export default function ServiceFaqsPage() {
                             size="sm"
                             onClick={() => handleDeleteClick(serviceFaq.id)}
                             disabled={isDeleting}
-                            className="gap-1 text-destructive hover:text-destructive"
+                            className="gap-1 text-destructive cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4" />
                             Delete

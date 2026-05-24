@@ -61,7 +61,7 @@ const convertFirestoreDocToServiceFaq = (docData: any, docId: string): ServiceFa
         question: typeof item.question === "string" ? item.question.trim() : "",
         answer: typeof item.answer === "string" ? item.answer.trim() : "",
       }))
-      .filter((item) => item.question || item.answer)
+      .filter((item: ServiceFaqItem) => item.question || item.answer)
   }
 
   return {
@@ -186,12 +186,12 @@ export const serviceFaqsApi = createApi({
           const serviceFaqId = newServiceFaqRef.id
 
           // Clean FAQs
-          const faqsClean = serviceFaqData.faqs
-            .map((faq) => ({
+          const faqsClean = (serviceFaqData.faqs || [])
+            .map((faq: ServiceFaqItem) => ({
               question: typeof faq.question === "string" ? faq.question.trim() : "",
               answer: typeof faq.answer === "string" ? faq.answer.trim() : "",
             }))
-            .filter((faq) => faq.question && faq.answer)
+            .filter((faq: ServiceFaqItem) => faq.question && faq.answer)
 
           if (faqsClean.length === 0) {
             return {
@@ -280,12 +280,12 @@ export const serviceFaqsApi = createApi({
               }
             }
 
-            const faqsClean = serviceFaqData.faqs
-              .map((faq) => ({
+            const faqsClean = (serviceFaqData.faqs || [])
+              .map((faq: ServiceFaqItem) => ({
                 question: typeof faq.question === "string" ? faq.question.trim() : "",
                 answer: typeof faq.answer === "string" ? faq.answer.trim() : "",
               }))
-              .filter((faq) => faq.question && faq.answer)
+              .filter((faq: ServiceFaqItem) => faq.question && faq.answer)
 
             if (faqsClean.length === 0) {
               return {

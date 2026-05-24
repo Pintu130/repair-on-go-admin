@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Trash2, Loader2 } from "lucide-react"
+import { Plus, X, Loader2 } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -47,13 +47,27 @@ export function ServiceFaqsModal({
   isLoading = false,
   categories,
 }: ServiceFaqsModalProps) {
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setHasAttemptedSubmit(false)
+    }
+  }, [open])
+
   const handleCancel = () => {
     onCancel()
     onOpenChange(false)
+    setHasAttemptedSubmit(false)
+  }
+
+  const handleSaveWithValidation = () => {
+    setHasAttemptedSubmit(true)
+    onSave()
   }
 
   const addFaq = () => {
-    onFaqsChange([...faqs, { question: "", answer: "" }])
+    onFaqsChange([{ question: "", answer: "" }, ...faqs])
   }
 
   const updateFaq = (index: number, field: "question" | "answer", value: string) => {
@@ -67,18 +81,14 @@ export function ServiceFaqsModal({
     onFaqsChange(updated)
   }
 
-  const getSelectedCategory = () => {
-    return categories.find((cat) => cat.id === categoryId)
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
           <DialogTitle>{isEditing ? "Edit Service FAQs" : "Add Service FAQs"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 px-6 overflow-y-auto grow py-2">
           {/* Category Selection */}
           <div className="space-y-2">
             <Label htmlFor="category-select">
@@ -88,7 +98,7 @@ export function ServiceFaqsModal({
               const selected = categories.find((cat) => cat.id === value)
               onCategoryChange(value, selected?.name || "")
             }}>
-              <SelectTrigger id="category-select" className="w-full">
+              <SelectTrigger id="category-select" className="w-full cursor-pointer">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent>
@@ -99,7 +109,7 @@ export function ServiceFaqsModal({
                 ))}
               </SelectContent>
             </Select>
-            {!categoryId && <p className="text-xs text-destructive">Category is required</p>}
+            {hasAttemptedSubmit && !categoryId && <p className="text-xs text-destructive">Category is required</p>}
           </div>
 
           {/* FAQs Section */}
@@ -112,7 +122,7 @@ export function ServiceFaqsModal({
                 size="sm"
                 onClick={addFaq}
                 disabled={isLoading}
-                className="gap-2"
+                className="gap-2 cursor-pointer"
               >
                 <Plus className="h-4 w-4" />
                 Add FAQ
@@ -128,8 +138,20 @@ export function ServiceFaqsModal({
             ) : (
               <div className="space-y-4">
                 {faqs.map((faq, index) => (
-                  <Card key={index} className="p-4">
-                    <div className="space-y-3">
+                  <Card key={index} className="p-4 relative">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => removeFaq(index)}
+                      disabled={isLoading}
+                      className="absolute top-2 right-2 cursor-pointer text-destructive hover:text-destructive hover:bg-destructive/10"
+                      title="Remove FAQ"
+                      aria-label="Remove FAQ"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <div className="space-y-3 pr-10">
                       <div className="space-y-2">
                         <Label htmlFor={`question-${index}`} className="text-sm">
                           Question <span className="text-destructive">*</span>
@@ -157,20 +179,6 @@ export function ServiceFaqsModal({
                           disabled={isLoading}
                         />
                       </div>
-
-                      <div className="flex justify-end">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => removeFaq(index)}
-                          disabled={isLoading}
-                          className="gap-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Remove
-                        </Button>
-                      </div>
                     </div>
                   </Card>
                 ))}
@@ -183,27 +191,28 @@ export function ServiceFaqsModal({
               </p>
             )}
           </div>
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={onSave}
-              disabled={isLoading || !categoryId || faqs.length === 0}
-              className="gap-2"
-            >
-              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isEditing ? "Update FAQs" : "Create FAQs"}
-            </Button>
-          </div>
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 p-6 pt-4 border-t shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancel}
+            disabled={isLoading}
+            className="cursor-pointer"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSaveWithValidation}
+            disabled={isLoading || !categoryId || faqs.length === 0}
+            className="gap-2 cursor-pointer"
+          >
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isEditing ? "Update FAQs" : "Create FAQs"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
