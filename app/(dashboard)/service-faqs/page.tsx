@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Edit2, Trash2, Plus, HelpCircle, Loader2 } from "lucide-react"
-import { StatusBadge } from "@/components/common/status-badge"
 import { ServiceFaqsModal } from "@/components/common/service-faqs-modal"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
 import {
