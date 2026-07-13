@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Edit2, Trash2, Plus, X, Eye, Loader2, Phone, Mail } from "lucide-react"
+import { Edit2, Trash2, Plus, X, Eye, Loader2, Phone } from "lucide-react"
 import { Customer, formatMobileNumber } from "@/data/customers"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { SearchInput } from "@/components/common/search-input"
@@ -389,18 +389,17 @@ export default function CustomersPage() {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm table-fixed">
+              <div className="table-responsive">
+                <table className="w-full text-sm !min-w-[960px]">
                   <thead className="border-b border-border">
                     <tr>
-                      <th className="text-left py-3 px-4 font-semibold w-[220px]">Name</th>
-                      <th className="text-left py-3 px-4 font-semibold w-[200px]">Email</th>
-                      <th className="text-left py-3 px-4 font-semibold w-[140px]">Phone</th>
-                      <th className="text-left py-3 px-4 font-semibold w-[120px]">City</th>
-                      <th className="text-left py-3 px-4 font-semibold w-[150px]">Created Date</th>
-                      {/* <th className="text-left py-3 px-4 font-semibold w-[100px]">Orders</th> */}
-                      <th className="text-left py-3 px-4 font-semibold w-[120px]">Status</th>
-                      <th className="text-left py-3 px-4 font-semibold w-[180px]">Action</th>
+                      <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">User</th>
+                      <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">Phone</th>
+                      <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">City</th>
+                      <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">Created Date</th>
+                      {/* <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">Orders</th> */}
+                      <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -430,20 +429,17 @@ export default function CustomersPage() {
                                   {getInitials()}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="font-medium truncate capitalize">{fullName}</span>
+                              <div className="min-w-0 flex flex-col">
+                                <span className="font-medium truncate capitalize whitespace-nowrap">{fullName}</span>
+                                <span className="text-xs text-muted-foreground truncate whitespace-nowrap">{customer.email}</span>
+                              </div>
                             </div>
                           </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <Mail size={14} className="text-muted-foreground shrink-0" />
-                              <span className="truncate">{customer.email}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">
                             {customer.mobileNumber ? (
                               <div className="flex items-center gap-2">
                                 <Phone size={14} className="text-muted-foreground shrink-0" />
-                                <span>{formatMobileNumber(customer.mobileNumber)}</span>
+                                <span className="whitespace-nowrap">{formatMobileNumber(customer.mobileNumber)}</span>
                               </div>
                             ) : (
                               <div className="flex items-center justify-center">
@@ -451,8 +447,8 @@ export default function CustomersPage() {
                               </div>
                             )}
                           </td>
-                          <td className="py-3 px-4 truncate">{customer.city}</td>
-                          <td className="py-3 px-4">
+                          <td className="py-3 px-4 whitespace-nowrap">{customer.city}</td>
+                          <td className="py-3 px-4 whitespace-nowrap">
                             {customer.joinDate ? (
                               new Date(customer.joinDate).toLocaleString('en-IN', {
                                 day: '2-digit',

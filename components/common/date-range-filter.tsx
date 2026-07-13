@@ -15,6 +15,7 @@ interface DateRangeFilterProps {
   onClear?: () => void
   placeholder?: string
   className?: string
+  align?: "start" | "center" | "end"
 }
 
 export function DateRangeFilter({
@@ -23,6 +24,7 @@ export function DateRangeFilter({
   onClear,
   placeholder = "Pick a date range",
   className,
+  align = "start",
 }: DateRangeFilterProps) {
   const [open, setOpen] = useState(false)
   const [tempRange, setTempRange] = useState<DateRange | undefined>(
@@ -85,7 +87,7 @@ export function DateRangeFilter({
           <span>{displayText}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-auto p-0" align={align}>
         <div className="p-3">
           <Calendar
             initialFocus
