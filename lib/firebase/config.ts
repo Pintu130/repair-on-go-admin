@@ -1,5 +1,4 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app"
-import { getAnalytics, Analytics, isSupported } from "firebase/analytics"
 import { getAuth, Auth } from "firebase/auth"
 import { getFirestore, Firestore } from "firebase/firestore"
 import { getStorage, FirebaseStorage } from "firebase/storage"
@@ -11,7 +10,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "",
+  // measurementId intentionally omitted — admin panel must not send Google Analytics
 }
 
 // Validate that all required environment variables are present
@@ -25,7 +24,6 @@ let app: FirebaseApp
 let auth: Auth
 let db: Firestore
 let storage: FirebaseStorage | null = null
-let analytics: Analytics | null = null
 
 if (!getApps().length) {
   app = initializeApp(firebaseConfig)
@@ -37,17 +35,9 @@ if (!getApps().length) {
 auth = getAuth(app)
 db = getFirestore(app)
 
-// Initialize Storage only on client side
+// Initialize Storage only on client side (no Analytics — admin traffic must not be tracked)
 if (typeof window !== "undefined") {
   storage = getStorage(app)
-  
-  // Initialize Analytics only on client side
-  isSupported().then((supported) => {
-    if (supported) {
-      analytics = getAnalytics(app)
-    }
-  })
 }
 
-export { app, auth, db, storage, analytics }
-
+export { app, auth, db, storage }

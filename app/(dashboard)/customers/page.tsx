@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Edit2, Trash2, Plus, X, Eye, Loader2, Phone } from "lucide-react"
+import { Edit2, Trash2, Plus, X, Eye, Loader2, Mail } from "lucide-react"
 import { Customer, formatMobileNumber } from "@/data/customers"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { SearchInput } from "@/components/common/search-input"
@@ -13,6 +13,7 @@ import { Pagination } from "@/components/common/pagination"
 import { CustomerModal } from "@/components/common/customer-modal"
 import { StatusBadge } from "@/components/common/status-badge"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
+import { PhoneActions } from "@/components/common/phone-actions"
 import { useGetCustomersQuery, useCreateCustomerMutation, useUpdateCustomerMutation, useDeleteCustomerMutation } from "@/lib/store/api/customersApi"
 import { Loader } from "@/components/ui/loader"
 import { useToast } from "@/hooks/use-toast"
@@ -431,16 +432,32 @@ export default function CustomersPage() {
                               </Avatar>
                               <div className="min-w-0 flex flex-col">
                                 <span className="font-medium truncate capitalize whitespace-nowrap">{fullName}</span>
-                                <span className="text-xs text-muted-foreground truncate whitespace-nowrap">{customer.email}</span>
+                                {customer.email ? (
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="text-xs text-muted-foreground truncate whitespace-nowrap">
+                                      {customer.email}
+                                    </span>
+                                    <a
+                                      href={`mailto:${customer.email}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      title="Send email"
+                                      aria-label="Send email"
+                                      className="inline-flex items-center justify-center rounded p-0.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors shrink-0"
+                                    >
+                                      <Mail size={14} />
+                                    </a>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
                               </div>
                             </div>
                           </td>
                           <td className="py-3 px-4 whitespace-nowrap">
                             {customer.mobileNumber ? (
-                              <div className="flex items-center gap-2">
-                                <Phone size={14} className="text-muted-foreground shrink-0" />
-                                <span className="whitespace-nowrap">{formatMobileNumber(customer.mobileNumber)}</span>
-                              </div>
+                              <PhoneActions
+                                mobile={formatMobileNumber(customer.mobileNumber) || customer.mobileNumber}
+                              />
                             ) : (
                               <div className="flex items-center justify-center">
                                 <span className="text-muted-foreground font-medium">-</span>

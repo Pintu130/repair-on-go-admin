@@ -16,6 +16,7 @@ import { InfoCard } from "@/components/common/info-card"
 import { DateRangeFilter } from "@/components/common/date-range-filter"
 import { useGetBookingsQuery, useDeleteBookingMutation } from "@/lib/store/api/bookingsApi"
 import { OrdersTableSkeleton } from "@/components/common/orders-table-skeleton"
+import { PhoneActions } from "@/components/common/phone-actions"
 
 interface OrderItem extends Order {}
 
@@ -274,7 +275,6 @@ export default function OrdersPage() {
                 <tr>
                   <th className="text-left py-3 px-4 font-semibold">Order ID</th>
                   <th className="text-left py-3 px-4 font-semibold">Customer</th>
-                  <th className="text-left py-3 px-4 font-semibold">Mobile Number</th>
                   <th className="text-left py-3 px-4 font-semibold">Category</th>
                   <th className="text-left py-3 px-4 font-semibold">Amount</th>
                   <th className="text-left py-3 px-4 font-semibold">Payment Status</th>
@@ -295,8 +295,12 @@ export default function OrdersPage() {
                   paginatedData.map((order) => (
                   <tr key={order.id} className="border-b border-border hover:bg-muted/50">
                     <td className="py-3 px-4 font-mono text-xs font-semibold">{order.bookingId}</td>
-                    <td className="py-3 px-4">{order.customer}</td>
-                    <td className="py-3 px-4">{order.mobileNumber || "N/A"}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-col min-w-0 gap-0.5">
+                        <span className="font-medium whitespace-nowrap">{order.customer}</span>
+                        <PhoneActions mobile={order.mobileNumber} />
+                      </div>
+                    </td>
                     <td className="py-3 px-4">{order.category}</td>
                     <td className="py-3 px-4 font-semibold">₹{order.amount}</td>
                     <td className="py-3 px-4">

@@ -1,6 +1,5 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Analytics } from "@vercel/analytics/next"
 import { AuthProvider } from "@/lib/auth-context"
 import { ReduxProvider } from "@/lib/store/ReduxProvider"
 import { Toaster } from "@/components/ui/toaster"
@@ -45,7 +44,6 @@ export default function RootLayout({
           <AuthProvider>{children}</AuthProvider>
         </ReduxProvider>
         <Toaster />
-        <Analytics />
       </body>
     </html>
   )
