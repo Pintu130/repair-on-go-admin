@@ -21,6 +21,12 @@ export interface Customer {
   state?: string
   pincode?: string
   addressType?: string
+  // Location Information
+  location?: {
+    latitude?: number
+    longitude?: number
+    updatedAt?: string
+  }
 }
 
 export const mockCustomers: Customer[] = [

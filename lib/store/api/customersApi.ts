@@ -77,6 +77,12 @@ const convertFirestoreDocToCustomer = (docData: any, docId: string): Customer =>
     state: docData.state || docData.address?.state || undefined,
     pincode: docData.pincode || docData.address?.pincode || undefined,
     addressType: docData.addressType || docData.address?.type || undefined,
+    // Location Information
+    location: docData.location ? {
+      latitude: docData.location.latitude,
+      longitude: docData.location.longitude,
+      updatedAt: convertTimestamp(docData.location.updatedAt),
+    } : undefined,
   }
 }
 

@@ -4,7 +4,7 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Edit2, Trash2, Plus, X, Eye, Loader2, Mail } from "lucide-react"
+import { Edit2, Trash2, Plus, X, Eye, Loader2, Mail, MapPin } from "lucide-react"
 import { Customer, formatMobileNumber } from "@/data/customers"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { SearchInput } from "@/components/common/search-input"
@@ -432,24 +432,39 @@ export default function CustomersPage() {
                               </Avatar>
                               <div className="min-w-0 flex flex-col">
                                 <span className="font-medium truncate capitalize whitespace-nowrap">{fullName}</span>
-                                {customer.email ? (
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="text-xs text-muted-foreground truncate whitespace-nowrap">
-                                      {customer.email}
-                                    </span>
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  {customer.email ? (
+                                    <>
+                                      <span className="text-xs text-muted-foreground truncate whitespace-nowrap">
+                                        {customer.email}
+                                      </span>
+                                      <a
+                                        href={`mailto:${customer.email}`}
+                                        onClick={(e) => e.stopPropagation()}
+                                        title="Send email"
+                                        aria-label="Send email"
+                                        className="inline-flex items-center justify-center rounded p-0.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors shrink-0"
+                                      >
+                                        <Mail size={14} />
+                                      </a>
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">-</span>
+                                  )}
+                                  {customer.location?.latitude != null && customer.location?.longitude != null && (
                                     <a
-                                      href={`mailto:${customer.email}`}
+                                      href={`https://www.google.com/maps?q=${customer.location.latitude},${customer.location.longitude}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
                                       onClick={(e) => e.stopPropagation()}
-                                      title="Send email"
-                                      aria-label="Send email"
-                                      className="inline-flex items-center justify-center rounded p-0.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors shrink-0"
+                                      title={`View location: ${customer.location.latitude}, ${customer.location.longitude}`}
+                                      aria-label={`View location: ${customer.location.latitude}, ${customer.location.longitude}`}
+                                      className="inline-flex items-center justify-center rounded p-0.5 text-green-600 hover:bg-green-50 hover:text-green-700 transition-colors shrink-0"
                                     >
-                                      <Mail size={14} />
+                                      <MapPin size={14} />
                                     </a>
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">-</span>
-                                )}
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>

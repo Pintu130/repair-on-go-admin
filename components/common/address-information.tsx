@@ -1,13 +1,33 @@
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Home, MapPinned, Building2 } from "lucide-react"
+import { Home, MapPinned, Building2, MapPin, Clock } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 interface AddressInformationProps {
   customer: any
 }
 
 export function AddressInformation({ customer }: AddressInformationProps) {
+  const formatDateTime = (dateString: string | undefined) => {
+    if (!dateString) return "N/A"
+    try {
+      const date = new Date(dateString)
+      
+      return date.toLocaleString('en-IN', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Asia/Kolkata'
+      })
+    } catch (e) {
+      return dateString
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="">
@@ -80,6 +100,47 @@ export function AddressInformation({ customer }: AddressInformationProps) {
           </div>
           <span className="text-sm font-semibold">{customer.addressType || "N/A"}</span>
         </div>
+        {customer.location?.latitude != null && customer.location?.longitude != null && (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="h-6 w-6 rounded bg-muted flex items-center justify-center">
+                  <MapPin size={12} />
+                </div>
+                Location (Lat, Long)
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">{customer.location.latitude}, {customer.location.longitude}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="h-7 px-2"
+                >
+                  <a
+                    href={`https://www.google.com/maps?q=${customer.location.latitude},${customer.location.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <MapPin size={12} className="mr-1" />
+                    View
+                  </a>
+                </Button>
+              </div>
+            </div>
+            {customer.location.updatedAt && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="h-6 w-6 rounded bg-muted flex items-center justify-center">
+                    <Clock size={12} />
+                  </div>
+                  Location Updated At
+                </div>
+                <span className="text-sm font-semibold">{formatDateTime(customer.location.updatedAt)}</span>
+              </div>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   )
