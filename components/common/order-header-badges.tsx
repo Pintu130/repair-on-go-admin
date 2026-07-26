@@ -14,7 +14,7 @@ export function OrderHeaderBadges({ order, statusLabels }: OrderHeaderBadgesProp
     <div className="flex flex-wrap items-end gap-3">
       {/* Payment Status */}
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[10px] text-muted-foreground font-medium">Payment Status</span>
+        <span className="text-[10px] text-muted-foreground font-medium">Booking Payment Status</span>
         <Badge
           variant="outline"
           className={
@@ -38,7 +38,7 @@ export function OrderHeaderBadges({ order, statusLabels }: OrderHeaderBadgesProp
 
       {/* Payment Method */}
       <div className="flex flex-col items-center gap-1">
-        <span className="text-[10px] text-muted-foreground font-medium">Payment Method</span>
+        <span className="text-[10px] text-muted-foreground font-medium">Booking Payment Method</span>
         <Badge
           variant="outline"
           className={

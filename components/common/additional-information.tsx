@@ -22,7 +22,7 @@ export function AdditionalInformation({ order, statusLabels }: AdditionalInforma
             <span className="text-base font-semibold">{order.mobileNumber || "N/A"}</span>
           </div>
           <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Payment Method</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Booking Payment Method</span>
             <div className="flex items-center gap-2">
               {order.paymentMethod === "UPI" && <Smartphone size={16} className="text-blue-500" />}
               {order.paymentMethod === "Cash" && <Banknote size={16} className="text-green-500" />}
@@ -31,7 +31,7 @@ export function AdditionalInformation({ order, statusLabels }: AdditionalInforma
             </div>
           </div>
           <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Payment Status</span>
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Booking Payment Status</span>
             <Badge
               className={`w-fit ${
                 order.paymentStatus === "paid"
@@ -70,6 +70,20 @@ export function AdditionalInformation({ order, statusLabels }: AdditionalInforma
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Service</span>
             <span className="text-base font-semibold">{order.service || "N/A"}</span>
           </div>
+          {(order.pickupOtp || order.otp?.pickup) && (
+            <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pickup OTP</span>
+              <span className="text-base font-semibold font-mono text-xl tracking-wider text-primary">{order.pickupOtp || order.otp?.pickup}</span>
+              {order.pickupOtpAt && <span className="text-xs text-muted-foreground">{new Date(order.pickupOtpAt).toLocaleString("en-IN")}</span>}
+            </div>
+          )}
+          {(order.deliveryOtp || order.otp?.delivery) && (
+            <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivery OTP</span>
+              <span className="text-base font-semibold font-mono text-xl tracking-wider text-primary">{order.deliveryOtp || order.otp?.delivery}</span>
+              {order.deliveryOtpAt && <span className="text-xs text-muted-foreground">{new Date(order.deliveryOtpAt).toLocaleString("en-IN")}</span>}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

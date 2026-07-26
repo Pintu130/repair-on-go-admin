@@ -15,6 +15,7 @@ import { QuickActions } from "@/components/common/quick-actions"
 import { ServiceCenterModal } from "@/components/common/service-center-modal"
 import { useGetBookingByIdQuery, useUpdateBookingMutation } from "@/lib/store/api/bookingsApi"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { OrderDetailSkeleton } from "@/components/common/order-detail-skeleton"
 import { useToast } from "@/hooks/use-toast"
 
@@ -146,6 +147,8 @@ export default function OrderDetailPage() {
         serviceReason?: string
         serviceAmount?: number
         cancelledAtStatus?: string
+        servicePaymentMethod?: string
+        servicePaymentStatus?: string
       } = {
         status: order.status,
       }
@@ -167,6 +170,10 @@ export default function OrderDetailPage() {
         updates.serviceReason = null as any
         updates.serviceAmount = null as any
       }
+
+      // Always include servicePaymentMethod and servicePaymentStatus when available
+      if (order.servicePaymentMethod) updates.servicePaymentMethod = order.servicePaymentMethod
+      if (order.servicePaymentStatus) updates.servicePaymentStatus = order.servicePaymentStatus
 
       // If status is cancelled, include cancelledAtStatus
       if (order.status === "cancelled" && order.cancelledAtStatus) {
@@ -204,6 +211,11 @@ export default function OrderDetailPage() {
           <OrderHeaderBadges order={order} statusLabels={statusLabels} />
         </div>
         <div className="flex items-center gap-3">
+          <a href={`/orders/details/${order.bookingId || order.id}`} target="_blank" rel="noopener noreferrer">
+            <Button variant="default" className="shrink-0 cursor-pointer">
+              Details
+            </Button>
+          </a>
           <Link href="/orders">
             <Button variant="outline" className="shrink-0 cursor-pointer">
               <ArrowLeft size={20} className="mr-2" />
@@ -234,6 +246,7 @@ export default function OrderDetailPage() {
           value={order.customer}
           iconColor="text-blue-500"
           iconBgColor="bg-blue-500/10"
+          href={order.customerId ? `/customers/${order.customerId}` : undefined}
         />
         <InfoCard
           icon={Folder}
@@ -241,10 +254,11 @@ export default function OrderDetailPage() {
           value={order.category}
           iconColor="text-purple-500"
           iconBgColor="bg-purple-500/10"
+          href="/categories"
         />
         <InfoCard
           icon={IndianRupee}
-          label="Amount"
+          label="Booking Amount"
           value={`₹${order.amount.toLocaleString("en-IN")}`}
           iconColor="text-green-500"
           iconBgColor="bg-green-500/10"
@@ -278,6 +292,128 @@ export default function OrderDetailPage() {
         onSave={handleSave}
         isSaving={isSaving}
       />
+
+      {/* Service Center Details - Show when status is at or after serviceCenter */}
+      {(() => {
+        const serviceCenterIndex = statusSteps.indexOf("serviceCenter")
+        const currentIdx = statusSteps.indexOf(order.status)
+        if (currentIdx < serviceCenterIndex) return null
+
+        return (
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl font-semibold">Service Center Details</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Service, payment & pickup information</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Service Payment Method */}
+                {order.servicePaymentMethod && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Service Payment Method</span>
+                    <span className="text-base font-semibold capitalize">{order.servicePaymentMethod.replace(/([A-Z])/g, ' $1').trim()}</span>
+                  </div>
+                )}
+                {/* Service Payment Status */}
+                {order.servicePaymentStatus && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Service Payment Status</span>
+                    <Badge className={`w-fit ${
+                      order.servicePaymentStatus === "paid"
+                        ? "bg-green-500 hover:bg-green-600 text-white"
+                        : order.servicePaymentStatus === "pending"
+                        ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                        : "bg-gray-500 hover:bg-gray-600 text-white"
+                    }`}>
+                      {order.servicePaymentStatus.charAt(0).toUpperCase() + order.servicePaymentStatus.slice(1)}
+                    </Badge>
+                  </div>
+                )}
+                {/* Service Amount */}
+                {order.serviceAmount !== undefined && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Service Amount</span>
+                    <span className="text-base font-semibold">₹{order.serviceAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                {/* Service Reason */}
+                {order.serviceReason && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50 md:col-span-2 lg:col-span-3">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Service Reason</span>
+                    <span className="text-base font-semibold">{order.serviceReason}</span>
+                  </div>
+                )}
+
+                {/* Razorpay Payment Details */}
+                {order.razorpayOrderId && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Razorpay Order ID</span>
+                    <span className="text-sm font-mono font-semibold break-all">{order.razorpayOrderId}</span>
+                  </div>
+                )}
+                {order.razorpayPaymentId && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Razorpay Payment ID</span>
+                    <span className="text-sm font-mono font-semibold break-all">{order.razorpayPaymentId}</span>
+                  </div>
+                )}
+                {order.razorpaySignature && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Razorpay Signature</span>
+                    <span className="text-sm font-mono font-semibold break-all">{order.razorpaySignature}</span>
+                  </div>
+                )}
+
+                {/* Pickup Employee Details */}
+                {order.pickupEmployeeName && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pickup Employee Name</span>
+                    <span className="text-base font-semibold">{order.pickupEmployeeName}</span>
+                  </div>
+                )}
+                {order.pickupEmployeeId && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pickup Employee ID</span>
+                    <span className="text-sm font-mono font-semibold break-all">{order.pickupEmployeeId}</span>
+                  </div>
+                )}
+                {(order.pickupOtp !== undefined || order.otp?.pickup) && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Pickup OTP</span>
+                    <span className="text-base font-semibold font-mono tracking-wider text-primary">{order.pickupOtp || order.otp?.pickup || "N/A"}</span>
+                    {order.pickupOtpAt && (
+                      <span className="text-xs text-muted-foreground">{new Date(order.pickupOtpAt).toLocaleString("en-IN")}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Delivery Employee Details */}
+                {order.deliveryEmployeeName && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivery Employee Name</span>
+                    <span className="text-base font-semibold">{order.deliveryEmployeeName}</span>
+                  </div>
+                )}
+                {order.deliveryEmployeeId && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivery Employee ID</span>
+                    <span className="text-sm font-mono font-semibold break-all">{order.deliveryEmployeeId}</span>
+                  </div>
+                )}
+                {(order.deliveryOtp !== undefined || order.otp?.delivery) && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg bg-muted/50">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Delivery OTP</span>
+                    <span className="text-base font-semibold font-mono tracking-wider text-primary">{order.deliveryOtp || order.otp?.delivery || "N/A"}</span>
+                    {order.deliveryOtpAt && (
+                      <span className="text-xs text-muted-foreground">{new Date(order.deliveryOtpAt).toLocaleString("en-IN")}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       {/* Service Center Modal */}
       <ServiceCenterModal

@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, Timestamp, deleteField, query, where, setDoc, serverTimestamp } from "firebase/firestore"
-import { db, storage } from "@/lib/firebase/config"
-import { ref, deleteObject } from "firebase/storage"
+import { db, storage, app } from "@/lib/firebase/config"
+import { ref, deleteObject, getStorage, listAll } from "firebase/storage"
 import type { Order } from "@/data/orders"
 
 const REVIEW_ELIGIBILITY_COLLECTION = "reviewEligibility"
@@ -149,6 +149,30 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
   // Get service reason and amount
   const serviceReason = docData.serviceReason || undefined
   const serviceAmount = docData.serviceAmount || undefined
+  const servicePaymentMethod = docData.servicePaymentMethod || undefined
+  const servicePaymentStatus = docData.servicePaymentStatus || undefined
+
+  // Payment gateway details
+  const razorpayOrderId = docData.razorpayOrderId || undefined
+  const razorpayPaymentId = docData.razorpayPaymentId || undefined
+  const razorpaySignature = docData.razorpaySignature || undefined
+
+  // Pickup employee details
+  const pickupEmployeeId = docData.pickupEmployeeId || undefined
+  const pickupEmployeeName = docData.pickupEmployeeName || undefined
+  const pickupOtp = docData.pickupOtp !== undefined ? docData.pickupOtp : (docData.otp?.pickup || undefined)
+  const pickupOtpAt = docData.pickupOtpAt ? timestampToISO(docData.pickupOtpAt) : undefined
+  const otp = docData.otp || undefined
+
+  // Delivery employee details
+  const deliveryEmployeeId = docData.deliveryEmployeeId || undefined
+  const deliveryEmployeeName = docData.deliveryEmployeeName || undefined
+  const deliveryOtp = docData.deliveryOtp !== undefined ? docData.deliveryOtp : (docData.otp?.delivery || undefined)
+  const deliveryOtpAt = docData.deliveryOtpAt ? timestampToISO(docData.deliveryOtpAt) : undefined
+
+  // Customer info
+  const customerId = docData.customerId || undefined
+  const customerEmail = docData.customerEmail || undefined
 
   // Get cancelledAtStatus
   const cancelledAtStatus = docData.cancelledAtStatus || undefined
@@ -179,6 +203,7 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
     bookingId: docData.bookingId || docId || "",
     cancellationMessage: docData.cancellationMessage || "",
     customerUid: docData.customerUid || "",
+    customerId: customerId,
     customer: customerName,
     service: textDescription || category, // Use description as service or fallback to category
     mobileNumber: mobileNumber,
@@ -195,6 +220,21 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
     textDescription: textDescription,
     serviceReason: serviceReason,
     serviceAmount: serviceAmount,
+    servicePaymentMethod: servicePaymentMethod,
+    servicePaymentStatus: servicePaymentStatus,
+    razorpayOrderId: razorpayOrderId,
+    razorpayPaymentId: razorpayPaymentId,
+    razorpaySignature: razorpaySignature,
+    pickupEmployeeId: pickupEmployeeId,
+    pickupEmployeeName: pickupEmployeeName,
+    pickupOtp: pickupOtp,
+    pickupOtpAt: pickupOtpAt,
+    otp: otp,
+    deliveryEmployeeId: deliveryEmployeeId,
+    deliveryEmployeeName: deliveryEmployeeName,
+    deliveryOtp: deliveryOtp,
+    deliveryOtpAt: deliveryOtpAt,
+    customerEmail: customerEmail,
     cancelledAtStatus: cancelledAtStatus,
   }
 }
@@ -407,7 +447,7 @@ export const bookingsApi = createApi({
     }),
     updateBooking: builder.mutation<
       { success: boolean; message: string },
-      { bookingId: string; updates: { status?: string; serviceReason?: string; serviceAmount?: number; cancelledAtStatus?: string } }
+      { bookingId: string; updates: { status?: string; serviceReason?: string; serviceAmount?: number; cancelledAtStatus?: string; servicePaymentMethod?: string; servicePaymentStatus?: string } }
     >({
       queryFn: async ({ bookingId, updates }) => {
         try {
@@ -454,7 +494,11 @@ export const bookingsApi = createApi({
 
           // Prepare update data - map status to Firebase format if needed
           const updateData: any = {}
-          
+
+          // Read current doc once to use for statusTimestamps & preserving fields
+          const currentDocSnap = await getDoc(bookingDocRef)
+          const currentData = currentDocSnap.data() || {}
+
           if (updates.status !== undefined) {
             const statusMap: Record<string, string> = {
               booked: "booked",
@@ -475,13 +519,10 @@ export const bookingsApi = createApi({
             if (firebaseStatus === "cancelled") {
               updateData["statusTimestamps.cancelled"] = serverTimestamp()
             } else {
-              // Get current status from document to know how many steps were skipped
-              const docSnap = await getDoc(bookingDocRef)
-              const currentStatus = (docSnap.data()?.status as string) ?? "booked"
+              const currentStatus = (currentData.status as string) ?? "booked"
               const currentIndex = statusStepsOrder.indexOf(currentStatus)
               const newIndex = statusStepsOrder.indexOf(firebaseStatus)
 
-              // Set timestamp for new status AND all in-between steps (same update time for skipped steps)
               if (newIndex > currentIndex) {
                 for (let i = currentIndex + 1; i <= newIndex; i++) {
                   updateData[`statusTimestamps.${statusStepsOrder[i]}`] = serverTimestamp()
@@ -493,7 +534,6 @@ export const bookingsApi = createApi({
           }
 
           if (updates.serviceReason !== undefined) {
-            // If null/empty, delete the field; otherwise update it
             if (updates.serviceReason === null || updates.serviceReason === "") {
               updateData.serviceReason = deleteField()
             } else {
@@ -502,7 +542,6 @@ export const bookingsApi = createApi({
           }
 
           if (updates.serviceAmount !== undefined) {
-            // If null/0/empty, delete the field; otherwise update it
             if (updates.serviceAmount === null || updates.serviceAmount === 0) {
               updateData.serviceAmount = deleteField()
             } else {
@@ -512,6 +551,17 @@ export const bookingsApi = createApi({
 
           if (updates.cancelledAtStatus !== undefined) {
             updateData.cancelledAtStatus = updates.cancelledAtStatus
+          }
+
+          if (updates.servicePaymentMethod !== undefined) {
+            updateData.servicePaymentMethod = updates.servicePaymentMethod
+          } else if (currentData.servicePaymentMethod !== undefined) {
+            updateData.servicePaymentMethod = currentData.servicePaymentMethod
+          }
+          if (updates.servicePaymentStatus !== undefined) {
+            updateData.servicePaymentStatus = updates.servicePaymentStatus
+          } else if (currentData.servicePaymentStatus !== undefined) {
+            updateData.servicePaymentStatus = currentData.servicePaymentStatus
           }
 
           await updateDoc(bookingDocRef, updateData)
@@ -598,58 +648,112 @@ export const bookingsApi = createApi({
             }
           }
 
-          // Helper function to extract file path from Firebase Storage URL
-          const extractFilePath = (url: string): string | null => {
-            try {
-              // Firebase Storage URLs typically look like:
-              // https://firebasestorage.googleapis.com/v0/b/BUCKET_NAME/o/PATH?token=TOKEN
-              // We need to extract the PATH part and decode it
-              const urlObj = new URL(url)
-              const pathWithToken = urlObj.pathname.split('/o/')[1]
-              if (!pathWithToken) return null
-              
-              // Remove the token parameter and decode URL encoding
-              const path = pathWithToken.split('?')[0]
-              return decodeURIComponent(path)
-            } catch (error) {
-              console.warn(`⚠️ Failed to extract path from URL: ${url}`, error)
-              return null
-            }
+          // ── Firebase Storage deletion ──────────────────────────────────────
+          // Get storage instance — handle case where module-level storage is null (SSR)
+          const storageInstance = storage || (typeof window !== "undefined" ? getStorage(app) : null)
+
+          if (!storageInstance) {
+            console.warn("⚠️ Firebase Storage not available — skipping file deletions")
           }
 
-          // Delete images from Firebase Storage if they exist
-          if (bookingData.images && Array.isArray(bookingData.images)) {
-            for (const imageUrl of bookingData.images) {
+          // Resolve a value (URL or path) to a Firebase Storage path string
+          const resolveStoragePath = (entry: unknown): string | null => {
+            if (typeof entry !== "string" || !entry) return null
+            const trimmed = entry.trim()
+            if (!trimmed) return null
+
+            // If it's an HTTPS URL → extract the path after /o/
+            if (trimmed.startsWith("https://") || trimmed.startsWith("http://")) {
               try {
-                const filePath = extractFilePath(imageUrl)
-                if (filePath && storage) {
-                  const imageRef = ref(storage, filePath)
-                  await deleteObject(imageRef)
-                  console.log(`✅ Deleted image: ${filePath}`)
-                } else {
-                  console.warn(`⚠️ Could not extract path for image: ${imageUrl}`)
-                }
-              } catch (error: any) {
-                console.warn(`⚠️ Failed to delete image ${imageUrl}:`, error.message)
-                // Continue with deletion even if image deletion fails
+                const urlObj = new URL(trimmed)
+                const segment = urlObj.pathname.split("/o/")[1]
+                if (!segment) return null
+                return decodeURIComponent(segment.split("?")[0])
+              } catch {
+                console.warn(`⚠️ Could not parse URL: ${trimmed}`)
+                return null
+              }
+            }
+
+            // Already a storage path (gs:// or plain path)
+            if (trimmed.startsWith("gs://")) {
+              // gs://bucket/path → path
+              const parts = trimmed.split("/")
+              return parts.slice(3).join("/") || null
+            }
+
+            // Plain storage path like "booking/abc123/image.jpg"
+            return trimmed
+          }
+
+          // Delete a single file by storage path, catching 404s gracefully
+          const deleteFile = async (storagePath: string): Promise<boolean> => {
+            if (!storageInstance) return false
+            try {
+              const fileRef = ref(storageInstance, storagePath)
+              await deleteObject(fileRef)
+              console.log(`✅ Deleted: ${storagePath}`)
+              return true
+            } catch (err: any) {
+              // Ignore "not found" — file may already be gone
+              if (err.code === "storage/object-not-found") {
+                console.log(`ℹ️ Already deleted: ${storagePath}`)
+                return true
+              }
+              console.warn(`⚠️ Failed to delete ${storagePath}: ${err.message}`)
+              return false
+            }
+          }
+
+          // ── 1. Delete from images[] array ──────────────────────────────────
+          if (bookingData.images && Array.isArray(bookingData.images)) {
+            for (const entry of bookingData.images) {
+              const storagePath = resolveStoragePath(entry)
+              if (storagePath) {
+                await deleteFile(storagePath)
+              } else {
+                console.warn(`⚠️ Could not resolve storage path from:`, entry)
               }
             }
           }
 
-          // Delete audio file from Firebase Storage if it exists
+          // ── 2. Delete audio file ────────────────────────────────────────────
           if (bookingData.audioUrl) {
+            const storagePath = resolveStoragePath(bookingData.audioUrl)
+            if (storagePath) {
+              await deleteFile(storagePath)
+            } else {
+              console.warn(`⚠️ Could not resolve storage path from audioUrl: ${bookingData.audioUrl}`)
+            }
+          }
+
+          // ── 3. Catch-all: delete all files under booking/{bookingId}/ ───────
+          // This covers any files the customer app stored using booking ID as prefix
+          if (storageInstance) {
+            const bookingStoragePrefix = `booking/${bookingId}`
             try {
-              const filePath = extractFilePath(bookingData.audioUrl)
-              if (filePath && storage) {
-                const audioRef = ref(storage, filePath)
-                await deleteObject(audioRef)
-                console.log(`✅ Deleted audio: ${filePath}`)
-              } else {
-                console.warn(`⚠️ Could not extract path for audio: ${bookingData.audioUrl}`)
+              const prefixRef = ref(storageInstance, bookingStoragePrefix)
+              const result = await listAll(prefixRef)
+              if (result.items.length > 0 || result.prefixes.length > 0) {
+                console.log(`🔍 Found ${result.items.length} file(s) and ${result.prefixes.length} subfolder(s) under ${bookingStoragePrefix}/`)
+                for (const item of result.items) {
+                  await deleteFile(item.fullPath)
+                }
+                // Recurse into subfolders
+                const deleteSubfolder = async (folderRef: any) => {
+                  const subResult = await listAll(folderRef)
+                  for (const item of subResult.items) await deleteFile(item.fullPath)
+                  for (const sub of subResult.prefixes) await deleteSubfolder(sub)
+                }
+                for (const prefix of result.prefixes) {
+                  await deleteSubfolder(prefix)
+                }
               }
-            } catch (error: any) {
-              console.warn(`⚠️ Failed to delete audio ${bookingData.audioUrl}:`, error.message)
-              // Continue with deletion even if audio deletion fails
+            } catch (err: any) {
+              // listAll may fail if storage rules don't grant list permission — that's ok
+              if (err.code !== "storage/object-not-found" && err.code !== "storage/unauthorized") {
+                console.warn(`⚠️ Could not list files under ${bookingStoragePrefix}/: ${err.message}`)
+              }
             }
           }
 

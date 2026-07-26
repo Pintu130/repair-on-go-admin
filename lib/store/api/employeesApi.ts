@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
-import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from "firebase/firestore"
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp, query, where } from "firebase/firestore"
 import { createUserWithEmailAndPassword } from "firebase/auth"
 import { db, auth } from "@/lib/firebase/config"
 import { uploadImageToStorage, deleteImageFromStorage, deleteFileFromStorage, isFirebaseStorageUrl } from "@/lib/utils/storage"
@@ -543,6 +543,33 @@ export const employeesApi = createApi({
         "Employees",
       ],
     }),
+    getEmployeeByUid: builder.query<EmployeeResponse, string>({
+      queryFn: async (uid: string) => {
+        try {
+          const employeesRef = collection(db, "employees")
+          const q = query(employeesRef, where("uid", "==", uid))
+          const snapshot = await getDocs(q)
+
+          if (snapshot.empty) {
+            return { data: { employee: null } }
+          }
+
+          const docData = snapshot.docs[0].data()
+          const employee = convertFirestoreDocToEmployee(docData, snapshot.docs[0].id)
+
+          return { data: { employee } }
+        } catch (error: any) {
+          return {
+            error: {
+              status: "CUSTOM_ERROR",
+              error: error.message || "Failed to fetch employee by UID",
+              data: error.message || "Failed to fetch employee by UID",
+            },
+          }
+        }
+      },
+      providesTags: (result, error, uid) => [{ type: "Employees", id: uid }],
+    }),
     deleteEmployee: builder.mutation<{ success: boolean }, string>({
       queryFn: async (employeeId: string) => {
         try {
@@ -589,6 +616,7 @@ export const employeesApi = createApi({
 export const {
   useGetEmployeesQuery,
   useGetEmployeeByIdQuery,
+  useGetEmployeeByUidQuery,
   useCreateEmployeeMutation,
   useUpdateEmployeeMutation,
   useDeleteEmployeeMutation,
