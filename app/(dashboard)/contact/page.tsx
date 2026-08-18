@@ -218,9 +218,9 @@ export default function ContactPage() {
             Manage customer contact form submissions
           </p>
         </div>
-        <Button onClick={() => setIsAdding(true)} className="cursor-pointer">
+        {/* <Button onClick={() => setIsAdding(true)} className="cursor-pointer">
           <Plus size={16} className="mr-2" /> Add Contact
-        </Button>
+        </Button> */}
       </div>
 
       {/* Add Contact Modal */}
