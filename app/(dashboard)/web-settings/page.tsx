@@ -22,6 +22,7 @@ import {
   Clock,
   Youtube,
   MessageCircle,
+  Megaphone,
 } from "lucide-react"
 import { ImageUploadField } from "@/components/common/image-upload-field"
 import { InputField } from "@/components/common/input-field"
@@ -52,6 +53,7 @@ export default function WebSettingsPage() {
     supportAvailable: "24/7",
     serviceAreas: "NY, NJ, CT",
     supportHours: "Mon–Sat 9am–6pm",
+    announcement: "",
   })
   const [saved, setSaved] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -309,6 +311,23 @@ export default function WebSettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Announcement</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TextareaField
+            label="Announcement"
+            name="announcement"
+            value={settings.announcement}
+            onChange={handleChange as any}
+            icon={Megaphone}
+            rows={3}
+            placeholder="Add an announcement to show on your website (optional)"
+          />
+        </CardContent>
+      </Card>
 
       <div className="flex items-center gap-4">
         <Button size="lg" onClick={handleSave} disabled={isSaving || isLoading} className="cursor-pointer">

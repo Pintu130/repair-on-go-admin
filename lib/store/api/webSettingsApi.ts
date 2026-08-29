@@ -20,6 +20,7 @@ export interface WebSettings {
   supportAvailable?: string
   serviceAreas?: string
   supportHours?: string
+  announcement?: string
   createdAt?: string
   updatedAt?: string
 }

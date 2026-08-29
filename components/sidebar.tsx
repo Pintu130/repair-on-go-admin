@@ -66,7 +66,7 @@ export function Sidebar() {
       children: [
         { label: "Category", href: "/categories", icon: FolderTree },
         { label: "Category Requests", href: "/category-requests", icon: FileSearch },
-        { label: "Service FAQs", href: "/service-faqs", icon: HelpCircle },
+        // { label: "Service FAQs", href: "/service-faqs", icon: HelpCircle },
       ],
     },
     {
