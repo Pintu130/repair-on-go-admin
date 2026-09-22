@@ -21,6 +21,11 @@ export interface WebSettings {
   serviceAreas?: string
   supportHours?: string
   announcement?: string
+  baseFee?: number
+  perKmCharge?: number
+  serviceCenterLatitude?: number
+  serviceCenterLongitude?: number
+  distancePricingEnabled?: boolean
   createdAt?: string
   updatedAt?: string
 }

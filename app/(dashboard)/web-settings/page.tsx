@@ -4,6 +4,7 @@ import type React from "react"
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
 import {
   Save,
   AlertCircle,
@@ -23,6 +24,8 @@ import {
   Youtube,
   MessageCircle,
   Megaphone,
+  Coins,
+  Navigation,
 } from "lucide-react"
 import { ImageUploadField } from "@/components/common/image-upload-field"
 import { InputField } from "@/components/common/input-field"
@@ -54,6 +57,11 @@ export default function WebSettingsPage() {
     serviceAreas: "NY, NJ, CT",
     supportHours: "Mon–Sat 9am–6pm",
     announcement: "",
+    baseFee: "99",
+    perKmCharge: "10",
+    serviceCenterLatitude: "",
+    serviceCenterLongitude: "",
+    distancePricingEnabled: true,
   })
   const [saved, setSaved] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -65,7 +73,17 @@ export default function WebSettingsPage() {
   useEffect(() => {
     const fetched = data?.settings
     if (fetched) {
-      setSettings((prev) => ({ ...prev, ...fetched }))
+      const normalizeNum = (v: unknown): string =>
+        v === null || v === undefined || v === "" ? "" : String(v)
+      setSettings((prev) => ({
+        ...prev,
+        ...fetched,
+        baseFee: normalizeNum(fetched.baseFee),
+        perKmCharge: normalizeNum(fetched.perKmCharge),
+        serviceCenterLatitude: normalizeNum(fetched.serviceCenterLatitude),
+        serviceCenterLongitude: normalizeNum(fetched.serviceCenterLongitude),
+        distancePricingEnabled: fetched.distancePricingEnabled !== false,
+      }))
     }
   }, [data])
 
@@ -124,10 +142,35 @@ export default function WebSettingsPage() {
       const err = fn(val || "")
       if (err) newErrors[key] = err
     })
+
+    const numericKeys = ["baseFee", "perKmCharge", "serviceCenterLatitude", "serviceCenterLongitude"] as const
+    let numericOk = true
+    for (const key of numericKeys) {
+      const raw = (settings as any)[key]
+      if (raw === "" || raw === null || raw === undefined) continue
+      if (!Number.isFinite(Number(raw))) {
+        numericOk = false
+        newErrors.pricing = `${key} must be a valid number`
+        break
+      }
+    }
+    if (!numericOk) {
+      setErrors(newErrors)
+      return
+    }
     setErrors(newErrors)
     if (Object.keys(newErrors).length > 0) return
 
-    const resp = await updateWebSettings({ settings }).unwrap().catch(() => null)
+    const payload: any = {
+      ...settings,
+      baseFee: settings.baseFee === "" ? undefined : Number(settings.baseFee),
+      perKmCharge: settings.perKmCharge === "" ? undefined : Number(settings.perKmCharge),
+      serviceCenterLatitude: settings.serviceCenterLatitude === "" ? null : Number(settings.serviceCenterLatitude),
+      serviceCenterLongitude: settings.serviceCenterLongitude === "" ? null : Number(settings.serviceCenterLongitude),
+      distancePricingEnabled: settings.distancePricingEnabled,
+    }
+
+    const resp = await updateWebSettings({ settings: payload }).unwrap().catch(() => null)
     if (resp && resp.success) {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -311,6 +354,73 @@ export default function WebSettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pickup Centre & Distance Pricing</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div>
+              <p className="text-sm font-medium">Distance-based pricing</p>
+              <p className="text-xs text-muted-foreground">
+                Pay = Base fee + travel charge ({settings.perKmCharge || 0}/km) from pickup centre
+              </p>
+            </div>
+            <Switch
+              checked={settings.distancePricingEnabled}
+              onCheckedChange={(v) => setSettings((prev) => ({ ...prev, distancePricingEnabled: v }))}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField
+              label="Base Service Fee (₹)"
+              name="baseFee"
+              type="number"
+              min={0}
+              step="any"
+              value={settings.baseFee}
+              onChange={handleChange as any}
+              icon={Coins}
+              placeholder="e.g. 99"
+            />
+            <InputField
+              label="Per Km Charge (₹)"
+              name="perKmCharge"
+              type="number"
+              min={0}
+              step="any"
+              value={settings.perKmCharge}
+              onChange={handleChange as any}
+              icon={Navigation}
+              placeholder="e.g. 10"
+            />
+            <div className="grid grid-cols-2 gap-4 md:col-span-2">
+              <InputField
+                label="Centre Latitude"
+                name="serviceCenterLatitude"
+                type="number"
+                step="any"
+                value={settings.serviceCenterLatitude}
+                onChange={handleChange as any}
+                icon={MapPin}
+                placeholder="e.g. 21.7051"
+              />
+              <InputField
+                label="Centre Longitude"
+                name="serviceCenterLongitude"
+                type="number"
+                step="any"
+                value={settings.serviceCenterLongitude}
+                onChange={handleChange as any}
+                icon={MapPin}
+                placeholder="e.g. 72.9959"
+              />
+            </div>
+          </div>
+          {errors.pricing && <p className="text-xs text-destructive">{errors.pricing}</p>}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

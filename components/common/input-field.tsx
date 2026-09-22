@@ -11,6 +11,9 @@ function InputField({
   onChange,
   icon: Icon,
   placeholder,
+  min,
+  max,
+  step,
   className,
 }: {
   label: string
@@ -20,6 +23,9 @@ function InputField({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   icon?: LucideIcon
   placeholder?: string
+  min?: number
+  max?: number
+  step?: string | number
   className?: string
 }) {
   return (
@@ -35,6 +41,9 @@ function InputField({
           value={value}
           onChange={onChange}
           placeholder={placeholder}
+          min={min}
+          max={max}
+          step={step}
           className="w-full pl-10 px-4 py-2 rounded-lg border border-border bg-background"
         />
       </div>
