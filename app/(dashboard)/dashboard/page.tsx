@@ -16,13 +16,15 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { type Order } from "@/data/orders"
+import Link from "next/link"
 import { useState, useMemo } from "react"
-import { Clock, TrendingUp, Users, Zap } from "lucide-react"
+import { Ban, Clock, MessageSquare, TrendingUp, Users, Zap } from "lucide-react"
 import { StatCard } from "@/components/stat-card"
 import { DateRangeFilter } from "@/components/common/date-range-filter"
 import { useGetBookingsQuery } from "@/lib/store/api/bookingsApi"
 import { useGetCustomersQuery } from "@/lib/store/api/customersApi"
 import { useGetEmployeesQuery } from "@/lib/store/api/employeesApi"
+import { useGetContactsQuery } from "@/lib/store/api/contactsApi"
 import {
   format,
   eachDayOfInterval,
@@ -105,10 +107,12 @@ export default function DashboardPage() {
   const { data: bookingsData } = useGetBookingsQuery()
   const { data: customersData } = useGetCustomersQuery()
   const { data: employeesData } = useGetEmployeesQuery()
+  const { data: contactsData } = useGetContactsQuery()
 
   const orders: Order[] = bookingsData?.bookings || []
   const customers = customersData?.customers || []
   const employees = employeesData?.employees || []
+  const messages = contactsData?.contacts || []
 
   const hasCustomRange = Boolean(dateRange?.from)
 
@@ -133,6 +137,12 @@ export default function DashboardPage() {
       .filter((employee) => isInDateRange(employee.joinDate, effectiveRange))
   }, [employees, effectiveRange])
 
+  const filteredMessages = useMemo(() => {
+    return messages.filter((message) =>
+      isInDateRange(message.date || message.createdAt, effectiveRange)
+    )
+  }, [messages, effectiveRange])
+
   const totalRevenue = filteredOrders
     .filter((order) => order.paymentStatus === "paid")
     .reduce((sum, order) => sum + (order.amount || 0), 0)
@@ -140,6 +150,8 @@ export default function DashboardPage() {
   const totalEmployees = filteredEmployees.length
   const totalOrders = filteredOrders.length
   const canceledOrders = filteredOrders.filter((order) => order.status === "cancelled").length
+  const totalMessages = filteredMessages.length
+  const newMessages = filteredMessages.filter((message) => message.status === "new").length
 
   const rangeLabel = useMemo(() => {
     if (!effectiveRange?.from) return null
@@ -269,22 +281,22 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div className="min-w-0">
-          <h1 className="text-3xl font-bold text-balance">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold text-balance">Dashboard</h1>
+          <p className="text-sm text-muted-foreground break-words">
             {rangeLabel ? `Showing data from ${rangeLabel}` : "Welcome to RepairOnGo admin panel"}
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 shrink-0 sm:ml-auto">
-          <div className="flex flex-wrap gap-2">
+        <div className="flex w-full min-w-0 flex-col gap-2 xl:w-auto xl:shrink-0 xl:flex-row xl:items-center xl:ml-auto">
+          <div className="grid w-full grid-cols-4 gap-2 xl:flex xl:w-auto xl:flex-wrap">
             {(["today", "week", "month", "year"] as const).map((period) => (
               <button
                 key={period}
                 type="button"
                 onClick={() => handlePeriodClick(period)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                className={`px-2 sm:px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer truncate ${
                   !hasCustomRange && timePeriod === period
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground hover:bg-muted/80"
@@ -299,20 +311,21 @@ export default function DashboardPage() {
             onChange={handleDateRangeChange}
             onClear={() => setDateRange(undefined)}
             placeholder="Filter by date range"
-            className="w-full sm:w-[260px]"
+            className="w-full xl:w-[260px]"
             align="end"
           />
         </div>
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         <StatCard
           title="Total Revenue"
           value={`₹${totalRevenue.toLocaleString("en-IN")}`}
           subtitle="Paid bookings in period"
           subtitleClassName="text-xs text-muted-foreground"
           icon={<TrendingUp className="text-primary" size={18} />}
+          href="/payments"
         />
         <StatCard
           title="Users Registered"
@@ -320,6 +333,7 @@ export default function DashboardPage() {
           subtitle="New users in period"
           subtitleClassName="text-xs text-muted-foreground"
           icon={<Users className="text-primary" size={18} />}
+          href="/customers"
         />
         <StatCard
           title="Total Employees"
@@ -327,6 +341,7 @@ export default function DashboardPage() {
           subtitle="Joined in period"
           subtitleClassName="text-xs text-muted-foreground"
           icon={<Zap className="text-primary" size={18} />}
+          href="/employees"
         />
         <StatCard
           title="Total Orders"
@@ -334,6 +349,7 @@ export default function DashboardPage() {
           subtitle="Orders in period"
           subtitleClassName="text-xs text-muted-foreground"
           icon={<Clock className="text-primary" size={18} />}
+          href="/orders"
         />
         <StatCard
           title="Canceled Orders"
@@ -344,29 +360,39 @@ export default function DashboardPage() {
               : "0% of total orders"
           }
           subtitleClassName="text-xs text-muted-foreground"
+          icon={<Ban className="text-primary" size={18} />}
+          href="/orders"
+        />
+        <StatCard
+          title="Total Messages"
+          value={totalMessages.toLocaleString("en-IN")}
+          subtitle={`${newMessages.toLocaleString("en-IN")} new messages`}
+          subtitleClassName="text-xs text-muted-foreground"
+          icon={<MessageSquare className="text-primary" size={18} />}
+          href="/contact"
         />
       </div>
 
       {/* Charts */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Revenue Trend ({periodOrRangeLabel})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="label" />
-                <YAxis />
-                <Tooltip formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "Revenue"]} />
-                <Line type="monotone" dataKey="revenue" stroke="#ED2C2C" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Revenue Trend ({periodOrRangeLabel})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="label" />
+              <YAxis />
+              <Tooltip formatter={(value: number) => [`₹${value.toLocaleString("en-IN")}`, "Revenue"]} />
+              <Line type="monotone" dataKey="revenue" stroke="#ED2C2C" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
-        <Card>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Bookings by Category ({periodOrRangeLabel})</CardTitle>
           </CardHeader>
@@ -379,8 +405,8 @@ export default function DashboardPage() {
                   nameKey="name"
                   cx="50%"
                   cy="50%"
-                  outerRadius={110}
-                  innerRadius={50}
+                  outerRadius={80}
+                  innerRadius={40}
                   paddingAngle={2}
                   label={({ name, percent }) =>
                     `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
@@ -399,46 +425,47 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock size={20} />
-            Latest Bookings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {latestBookings.map((booking) => (
-              <div
-                key={booking.id}
-                className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm">{booking.bookingId || booking.id}</p>
-                    <Badge className={getStatusColor(booking.status)}>
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                    </Badge>
+        <Card className="min-w-0">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock size={20} />
+              Latest Bookings
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {latestBookings.map((booking) => (
+                <Link
+                  key={booking.id}
+                  href={`/orders/${booking.id}`}
+                  className="flex items-center justify-between gap-3 p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-sm">{booking.bookingId || booking.id}</p>
+                      <Badge className={getStatusColor(booking.status)}>
+                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">{booking.customer}</p>
+                    <p className="text-xs text-muted-foreground truncate">{booking.service}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{booking.customer}</p>
-                  <p className="text-xs text-muted-foreground">{booking.service}</p>
+                  <div className="text-right shrink-0">
+                    <p className="font-semibold">₹{booking.amount}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(booking.date).toLocaleDateString()}</p>
+                  </div>
+                </Link>
+              ))}
+              {latestBookings.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  No bookings in selected period
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">₹{booking.amount}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(booking.date).toLocaleDateString()}</p>
-                </div>
-              </div>
-            ))}
-            {latestBookings.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No bookings in selected period
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

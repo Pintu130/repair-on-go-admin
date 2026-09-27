@@ -11,6 +11,7 @@ interface SearchInputProps {
   label?: string
   className?: string
   width?: string
+  hideLabel?: boolean
 }
 
 export function SearchInput({
@@ -19,15 +20,18 @@ export function SearchInput({
   placeholder = "Search by name or email...",
   label = "Search",
   className = "",
-  width = "w-[400px]",
+  width = "w-full sm:w-auto sm:flex-1 sm:basis-[200px] sm:min-w-[180px]",
+  hideLabel = false,
 }: SearchInputProps) {
   const inputIdRef = useRef(`search-input-${Math.random().toString(36).substr(2, 9)}`)
 
   return (
     <div className={width}>
-      <label className="text-sm font-medium mb-1 block" htmlFor={inputIdRef.current}>
-        {label}
-      </label>
+      {!hideLabel && (
+        <label className="text-sm font-medium mb-1 block" htmlFor={inputIdRef.current}>
+          {label}
+        </label>
+      )}
       <form autoComplete="off" onSubmit={(e) => e.preventDefault()}>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
@@ -44,6 +48,7 @@ export function SearchInput({
             role="searchbox"
             name="search-query"
             id={inputIdRef.current}
+            aria-label={hideLabel ? label : undefined}
             data-1p-ignore
             data-form-type="other"
           />

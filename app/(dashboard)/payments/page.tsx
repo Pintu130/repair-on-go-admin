@@ -251,7 +251,7 @@ export default function PaymentsPage() {
       {/* Custom Filter Section */}
       <Card>
         <CardContent className="px-5">
-          <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Left Side - Search Input */}
             <SearchInput
               value={searchTerm}
@@ -260,10 +260,11 @@ export default function PaymentsPage() {
                 setCurrentPage(1)
               }}
               placeholder="Search by payment ID, order ID, or customer..."
+              hideLabel
             />
 
             {/* Right Side - Status Filter, Page Size, and Clear Button */}
-            <div className="flex items-end gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-none">
               {/* Status Filter */}
               <SelectFilter
                 value={statusFilter}
@@ -279,6 +280,8 @@ export default function PaymentsPage() {
                 ]}
                 label="Status"
                 placeholder="All Status"
+                width="w-full min-w-[110px] flex-1 sm:w-[110px] sm:flex-none"
+                hideLabel
               />
 
               {/* Page Size */}
@@ -295,7 +298,8 @@ export default function PaymentsPage() {
                   { value: "50", label: "50" },
                 ]}
                 label="Page Size"
-                width="w-[140px]"
+                width="w-full min-w-[90px] flex-1 sm:w-[90px] sm:flex-none"
+                hideLabel
               />
 
               {/* Clear Filters Button - Only show when filters are active */}

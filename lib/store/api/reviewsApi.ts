@@ -5,6 +5,7 @@ import { db } from "@/lib/firebase/config"
 export interface Review {
   id: string
   customer: string
+  customerUid?: string
   customerFirstName?: string
   customerLastName?: string
   customerAvatar?: string
@@ -46,6 +47,7 @@ const convertFirestoreDocToReview = (docData: any, docId: string): Review => {
   return {
     id: docId || docData.id || "",
     customer: docData.customer || "",
+    customerUid: docData.uid || "",
     customerFirstName: docData.customerFirstName || "",
     customerLastName: docData.customerLastName || "",
     customerAvatar: docData.customerAvatar || "",

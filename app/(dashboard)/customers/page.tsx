@@ -4,28 +4,38 @@ import { useState, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Edit2, Trash2, Plus, X, Eye, Loader2, Mail, MapPin } from "lucide-react"
+import { Edit2, Trash2, Plus, X, Eye, Loader2, Mail, MapPin, Download } from "lucide-react"
 import { Customer, formatMobileNumber } from "@/data/customers"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { Checkbox } from "@/components/ui/checkbox"
 import { SearchInput } from "@/components/common/search-input"
 import { SelectFilter } from "@/components/common/select-filter"
+import { DateRangeFilter } from "@/components/common/date-range-filter"
 import { Pagination } from "@/components/common/pagination"
 import { CustomerModal } from "@/components/common/customer-modal"
+import { SendEmailModal } from "@/components/common/send-email-modal"
 import { StatusBadge } from "@/components/common/status-badge"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
 import { PhoneActions } from "@/components/common/phone-actions"
 import { useGetCustomersQuery, useCreateCustomerMutation, useUpdateCustomerMutation, useDeleteCustomerMutation } from "@/lib/store/api/customersApi"
+import { useGetBookingsQuery } from "@/lib/store/api/bookingsApi"
+import { useGetReviewsQuery } from "@/lib/store/api/reviewsApi"
 import { Loader } from "@/components/ui/loader"
 import { useToast } from "@/hooks/use-toast"
+import { startOfDay, endOfDay } from "date-fns"
+import * as XLSX from "xlsx"
 
 export default function CustomersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date } | undefined>(undefined)
 
   // Fetch customers from Firebase
   const { data, isLoading, isError, error, refetch } = useGetCustomersQuery()
+  const { data: bookingsData } = useGetBookingsQuery()
+  const { data: reviewsData } = useGetReviewsQuery()
   const [createCustomer, { isLoading: isCreating }] = useCreateCustomerMutation()
   const [updateCustomer, { isLoading: isUpdating }] = useUpdateCustomerMutation()
   const [deleteCustomer, { isLoading: isDeleting }] = useDeleteCustomerMutation()
@@ -37,6 +47,9 @@ export default function CustomersPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isEmailOpen, setIsEmailOpen] = useState(false)
+  const [emailRecipientIds, setEmailRecipientIds] = useState<string[]>([])
   const [formData, setFormData] = useState({
     // Personal Information
     avatar: "",
@@ -60,12 +73,14 @@ export default function CustomersPage() {
   })
 
   // Check if any filters are active
-  const hasActiveFilters = searchTerm !== "" || statusFilter !== "all"
+  const hasActiveFilters =
+    searchTerm !== "" || statusFilter !== "all" || dateRange?.from !== undefined
 
   // Clear all filters
   const handleClearFilters = () => {
     setSearchTerm("")
     setStatusFilter("all")
+    setDateRange(undefined)
     setCurrentPage(1)
   }
 
@@ -80,12 +95,338 @@ export default function CustomersPage() {
       // Status filter
       const matchesStatus = statusFilter === "all" || customer.status === statusFilter
 
-      return matchesSearch && matchesStatus
+      // Date range filter (on customer created/join date)
+      let matchesDateRange = true
+      if (dateRange?.from) {
+        if (!customer.joinDate) {
+          matchesDateRange = false
+        } else {
+          const joinDate = startOfDay(new Date(customer.joinDate))
+          const fromDate = startOfDay(dateRange.from)
+          const toDate = endOfDay(dateRange.to ?? dateRange.from)
+
+          matchesDateRange = joinDate >= fromDate && joinDate <= toDate
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesDateRange
     })
-  }, [searchTerm, statusFilter, customers])
+  }, [searchTerm, statusFilter, dateRange, customers])
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // Row selection (for bulk actions such as Send Email)
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds])
+  const allOnPageSelected =
+    paginatedData.length > 0 && paginatedData.every((customer) => selectedIdSet.has(customer.id))
+  const someOnPageSelected =
+    !allOnPageSelected && paginatedData.some((customer) => selectedIdSet.has(customer.id))
+
+  const toggleSelectAll = () => {
+    if (allOnPageSelected) {
+      const pageIds = new Set(paginatedData.map((customer) => customer.id))
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.has(id)))
+      return
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const customer of paginatedData) next.add(customer.id)
+      return Array.from(next)
+    })
+  }
+
+  const toggleSelectOne = (customerId: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(customerId)
+        ? prev.filter((id) => id !== customerId)
+        : [...prev, customerId]
+    )
+  }
+
+  const clearSelection = () => setSelectedIds([])
+
+  // Resolve selected ids -> { id, name, email } for the compose modal.
+  // Ids that no longer exist in the loaded customers are ignored.
+  const emailRecipients = useMemo(() => {
+    const byId = new Map(customers.map((customer) => [customer.id, customer]))
+    return emailRecipientIds
+      .map((id) => byId.get(id))
+      .filter((customer): customer is Customer => Boolean(customer))
+      .map((customer) => ({
+        id: customer.id,
+        name:
+          (customer.firstName && customer.lastName
+            ? `${customer.firstName} ${customer.lastName}`
+            : customer.name) || "Customer",
+        email: customer.email || "",
+      }))
+  }, [customers, emailRecipientIds])
+
+  const openEmailForSelection = () => {
+    setEmailRecipientIds(selectedIds)
+    setIsEmailOpen(true)
+  }
+
+  const openEmailForCustomer = (customer: Customer) => {
+    setEmailRecipientIds([customer.id])
+    setIsEmailOpen(true)
+  }
+
+  const allBookings = useMemo(() => bookingsData?.bookings || [], [bookingsData])
+  const allReviews = useMemo(() => reviewsData?.reviews || [], [reviewsData])
+
+  // Per-customer statistics (same calculations used on the customer details page)
+  const customerStats = useMemo(() => {
+    const stats: Record<
+      string,
+      {
+        totalOrders: number
+        completedOrders: number
+        cancelledOrders: number
+        orderPerformance: number
+        totalEarned: number
+        pendingOrders: number
+        pendingAmount: number
+        lastOrderDate: string
+        averageRating: string
+        totalReviews: number
+      }
+    > = {}
+
+    customers.forEach((customer) => {
+      const bookings = allBookings.filter(
+        (booking) => booking.customerId === customer.id || booking.customerUid === customer.uid
+      )
+
+      const completedBookings = bookings.filter((booking) => booking.status === "delivered")
+      const cancelledBookings = bookings.filter((booking) => booking.status === "cancelled")
+      const pendingBookings = bookings.filter(
+        (booking) =>
+          booking.status === "booked" ||
+          booking.status === "confirmed" ||
+          booking.status === "picked"
+      )
+
+      const totalEarned = completedBookings.reduce(
+        (sum, booking) => sum + parseFloat(booking.amount?.toString() || "0"),
+        0
+      )
+      const pendingAmount = pendingBookings.reduce(
+        (sum, booking) => sum + parseFloat(booking.amount?.toString() || "0"),
+        0
+      )
+
+      const latestBooking = bookings.length
+        ? [...bookings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+        : null
+
+      const reviews = allReviews.filter((review) => review.customerUid === customer.uid)
+      const averageRating =
+        reviews.length > 0
+          ? (reviews.reduce((sum, review) => sum + (review.rating || 0), 0) / reviews.length).toFixed(1)
+          : "0.0"
+
+      stats[customer.id] = {
+        totalOrders: bookings.length,
+        completedOrders: completedBookings.length,
+        cancelledOrders: cancelledBookings.length,
+        orderPerformance:
+          bookings.length > 0
+            ? Math.round((completedBookings.length / bookings.length) * 100)
+            : 0,
+        totalEarned,
+        pendingOrders: pendingBookings.length,
+        pendingAmount,
+        lastOrderDate: latestBooking?.date || "",
+        averageRating,
+        totalReviews: reviews.length,
+      }
+    })
+
+    return stats
+  }, [customers, allBookings, allReviews])
+
+  const formatDateTime = (dateValue?: string) => {
+    if (!dateValue) return "N/A"
+    try {
+      return new Date(dateValue).toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+      })
+    } catch {
+      return dateValue
+    }
+  }
+
+  // Export currently filtered customers to Excel (admin/employee accounts excluded)
+  const handleExport = () => {
+    const exportRows = filtered.filter((customer) => {
+      const role = (customer.role || "").toLowerCase()
+      return !role || role === "customer"
+    })
+
+    if (exportRows.length === 0) {
+      toast({
+        title: "No Data",
+        description: "No customers to export",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const exportData = exportRows.map((customer, index) => {
+      const fullName =
+        customer.firstName && customer.lastName
+          ? `${customer.firstName} ${customer.lastName}`
+          : customer.name
+
+      const hasLocation =
+        customer.location?.latitude != null && customer.location?.longitude != null
+
+      const stats = customerStats[customer.id] || {
+        totalOrders: 0,
+        completedOrders: 0,
+        cancelledOrders: 0,
+        orderPerformance: 0,
+        totalEarned: 0,
+        pendingOrders: 0,
+        pendingAmount: 0,
+        lastOrderDate: "",
+        averageRating: "0.0",
+        totalReviews: 0,
+      }
+
+      const fullAddress = [
+        customer.houseNo,
+        customer.roadName,
+        customer.nearbyLandmark,
+        customer.city,
+        customer.state,
+        customer.pincode,
+      ]
+        .filter(Boolean)
+        .join(", ")
+
+      return {
+        "S.No": index + 1,
+        "Customer ID": customer.id || "-",
+        "User UID": customer.uid || "-",
+        "Name": fullName || "-",
+        "First Name": customer.firstName || "-",
+        "Last Name": customer.lastName || "-",
+        Email: customer.email || "-",
+        Phone: customer.phone || "-",
+        Mobile: formatMobileNumber(customer.mobileNumber) || customer.mobileNumber || "-",
+        Age: customer.age || "-",
+        "Address Type": customer.addressType || "-",
+        "House No": customer.houseNo || "-",
+        "Road Name": customer.roadName || "-",
+        "Nearby Landmark": customer.nearbyLandmark || "-",
+        City: customer.city || "-",
+        State: customer.state || "-",
+        Pincode: customer.pincode || "-",
+        "Full Address": fullAddress || "-",
+        Latitude: hasLocation ? customer.location?.latitude : "-",
+        Longitude: hasLocation ? customer.location?.longitude : "-",
+        "Location Link": hasLocation
+          ? `https://www.google.com/maps?q=${customer.location?.latitude},${customer.location?.longitude}`
+          : "-",
+        "Location Updated At": customer.location?.updatedAt || "-",
+        "Total Orders (Profile)": customer.totalOrders ?? 0,
+        Status: customer.status || "-",
+        Role: customer.role || "-",
+        "Avatar URL": customer.avatar || "-",
+        "Created Date": customer.joinDate
+          ? new Date(customer.joinDate).toLocaleString("en-IN", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
+          : "-",
+        "Created Date (Raw)": customer.joinDate || "-",
+        "Join Date (IST)": formatDateTime(customer.joinDate),
+
+        // Statistics (same as customer details page)
+        "Total Orders": stats.totalOrders,
+        "Completed Orders": stats.completedOrders,
+        "Cancelled Orders": stats.cancelledOrders,
+        "Order Performance (%)": stats.orderPerformance,
+        "Total Spent": stats.totalEarned,
+        "Pending Orders": stats.pendingOrders,
+        "Pending Amount": stats.pendingAmount,
+        "Last Order": formatDateTime(stats.lastOrderDate),
+        "Average Rating": stats.averageRating,
+        "Total Reviews": stats.totalReviews,
+      }
+    })
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData)
+
+    worksheet["!cols"] = [
+      { wch: 6 },  // S.No
+      { wch: 24 }, // Customer ID
+      { wch: 24 }, // User UID
+      { wch: 25 }, // Name
+      { wch: 14 }, // First Name
+      { wch: 14 }, // Last Name
+      { wch: 30 }, // Email
+      { wch: 18 }, // Phone
+      { wch: 18 }, // Mobile
+      { wch: 8 },  // Age
+      { wch: 14 }, // Address Type
+      { wch: 12 }, // House No
+      { wch: 22 }, // Road Name
+      { wch: 22 }, // Nearby Landmark
+      { wch: 14 }, // City
+      { wch: 14 }, // State
+      { wch: 10 }, // Pincode
+      { wch: 40 }, // Full Address
+      { wch: 14 }, // Latitude
+      { wch: 14 }, // Longitude
+      { wch: 45 }, // Location Link
+      { wch: 22 }, // Location Updated At
+      { wch: 13 }, // Total Orders
+      { wch: 10 }, // Status
+      { wch: 12 }, // Role
+      { wch: 40 }, // Avatar URL
+      { wch: 20 }, // Created Date
+      { wch: 24 }, // Created Date (Raw)
+      { wch: 20 }, // Join Date (IST)
+      { wch: 13 }, // Total Orders
+      { wch: 16 }, // Completed Orders
+      { wch: 16 }, // Cancelled Orders
+      { wch: 20 }, // Order Performance (%)
+      { wch: 13 }, // Total Spent
+      { wch: 15 }, // Pending Orders
+      { wch: 15 }, // Pending Amount
+      { wch: 20 }, // Last Order
+      { wch: 15 }, // Average Rating
+      { wch: 14 }, // Total Reviews
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Customers")
+
+    const dateStr = new Date().toISOString().split("T")[0]
+    const filename = `customers_${dateStr}.xlsx`
+
+    XLSX.writeFile(workbook, filename)
+
+    toast({
+      title: "Export Successful",
+      description: `Exported ${exportRows.length} customers to ${filename}`,
+    })
+  }
+
   const handleAdd = () => {
     setEditingId(null)
     setFormData({
@@ -271,6 +612,7 @@ export default function CustomersPage() {
       // Close modal and reset
       setIsDeleteOpen(false)
       setDeleteId(null)
+      setSelectedIds((prev) => prev.filter((id) => id !== deleteId))
 
       // Refetch customers list
       refetch()
@@ -293,21 +635,50 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-balance">Customers</h1>
           <p className="text-muted-foreground">Manage all customers and their booking history</p>
         </div>
-        <Button onClick={handleAdd} className="cursor-pointer">
-          <Plus size={16} className="mr-2" /> Add Customer
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {/* <Button onClick={handleAdd} className="cursor-pointer">
+            <Plus size={16} className="mr-2" /> Add Customer
+          </Button> */}
+          <Button variant="outline" className="cursor-pointer" onClick={handleExport}>
+            <Download size={16} className="mr-2" /> Export
+          </Button>
+        </div>
       </div>
+
+      {/* Bulk Action Bar - visible only when rows are selected */}
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
+          <p className="text-sm font-medium">
+            {selectedIds.length} customer{selectedIds.length === 1 ? "" : "s"} selected
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={openEmailForSelection}
+              className="cursor-pointer"
+            >
+              <Mail size={16} className="mr-2" /> Send Email
+            </Button>
+            <Button
+              variant="outline"
+              onClick={clearSelection}
+              className="cursor-pointer"
+            >
+              Clear Selection
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Custom Filter Section */}
       <Card>
         <CardContent className="px-5">
-          <div className="flex items-end justify-between gap-3">
-            {/* Left Side - Search Input */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search Input - fills all remaining width */}
             <SearchInput
               value={searchTerm}
               onChange={(value) => {
@@ -315,10 +686,26 @@ export default function CustomersPage() {
                 setCurrentPage(1)
               }}
               placeholder="Search by name or email..."
+              hideLabel
             />
 
-            {/* Right Side - Status Filter, Page Size, and Clear Button */}
-            <div className="flex items-end gap-2">
+            {/* Date Range Filter, Status Filter, Page Size, and Clear Button */}
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-none">
+              {/* Date Range Filter */}
+              <DateRangeFilter
+                value={dateRange}
+                onChange={(range) => {
+                  setDateRange(range)
+                  setCurrentPage(1)
+                }}
+                onClear={() => {
+                  setDateRange(undefined)
+                  setCurrentPage(1)
+                }}
+                placeholder="Filter by date"
+                className="w-full sm:w-[200px]"
+              />
+
               {/* Status Filter */}
               <SelectFilter
                 value={statusFilter}
@@ -333,6 +720,8 @@ export default function CustomersPage() {
                 ]}
                 label="Status"
                 placeholder="All Status"
+                width="w-full min-w-[110px] flex-1 sm:w-[110px] sm:flex-none"
+                hideLabel
               />
 
               {/* Page Size */}
@@ -349,7 +738,8 @@ export default function CustomersPage() {
                   { value: "50", label: "50" },
                 ]}
                 label="Page Size"
-                width="w-[140px]"
+                width="w-full min-w-[90px] flex-1 sm:w-[90px] sm:flex-none"
+                hideLabel
               />
 
               {/* Clear Filters Button - Only show when filters are active */}
@@ -391,9 +781,17 @@ export default function CustomersPage() {
           ) : (
             <>
               <div className="table-responsive">
-                <table className="w-full text-sm !min-w-[960px]">
+                <table className="w-full text-sm !min-w-[1000px]">
                   <thead className="border-b border-border">
                     <tr>
+                      <th className="text-left py-3 px-4 font-semibold whitespace-nowrap w-10">
+                        <Checkbox
+                          checked={allOnPageSelected ? true : someOnPageSelected ? "indeterminate" : false}
+                          onCheckedChange={toggleSelectAll}
+                          disabled={paginatedData.length === 0}
+                          aria-label="Select all customers on this page"
+                        />
+                      </th>
                       <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">User</th>
                       <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">Phone</th>
                       <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">City</th>
@@ -419,7 +817,21 @@ export default function CustomersPage() {
                       }
 
                       return (
-                        <tr key={customer.id} className="border-b border-border hover:bg-muted/50">
+                        <tr
+                          key={customer.id}
+                          className={
+                            selectedIdSet.has(customer.id)
+                              ? "border-b border-border bg-primary/5"
+                              : "border-b border-border hover:bg-muted/50"
+                          }
+                        >
+                          <td className="py-3 px-4">
+                            <Checkbox
+                              checked={selectedIdSet.has(customer.id)}
+                              onCheckedChange={() => toggleSelectOne(customer.id)}
+                              aria-label={`Select ${fullName}`}
+                            />
+                          </td>
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3 min-w-0">
                               <Avatar className="h-8 w-8 shrink-0">
@@ -500,6 +912,21 @@ export default function CustomersPage() {
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEmailForCustomer(customer)}
+                                disabled={!customer.email}
+                                title={
+                                  customer.email
+                                    ? `Send email to ${customer.email}`
+                                    : "This customer has no email address"
+                                }
+                                aria-label={`Send email to ${fullName}`}
+                                className="cursor-pointer shrink-0"
+                              >
+                                <Mail size={14} />
+                              </Button>
                               <Button variant="outline" size="sm" onClick={() => handleEdit(customer)} className="cursor-pointer shrink-0">
                                 <Edit2 size={14} />
                               </Button>
@@ -560,6 +987,13 @@ export default function CustomersPage() {
         cancelText="Cancel"
         variant="destructive"
         isLoading={isDeleting}
+      />
+
+      <SendEmailModal
+        open={isEmailOpen}
+        onOpenChange={setIsEmailOpen}
+        recipients={emailRecipients}
+        onSent={clearSelection}
       />
     </div>
   )

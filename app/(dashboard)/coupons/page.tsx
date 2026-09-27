@@ -272,7 +272,7 @@ export default function CouponsPage() {
       {/* Custom Filter Section */}
       <Card>
         <CardContent className="px-5">
-          <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Left Side - Search Input */}
             <SearchInput
               value={searchTerm}
@@ -281,10 +281,11 @@ export default function CouponsPage() {
                 setCurrentPage(1)
               }}
               placeholder="Search by coupon code..."
+              hideLabel
             />
 
             {/* Right Side - Filters, Page Size, and Clear Button */}
-            <div className="flex items-end gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-none">
               {/* Status Filter */}
               <SelectFilter
                 value={statusFilter}
@@ -299,6 +300,8 @@ export default function CouponsPage() {
                 ]}
                 label="Status"
                 placeholder="All Status"
+                width="w-full min-w-[110px] flex-1 sm:w-[110px] sm:flex-none"
+                hideLabel
               />
 
               {/* Discount Type Filter */}
@@ -315,6 +318,8 @@ export default function CouponsPage() {
                 ]}
                 label="Discount Type"
                 placeholder="All Types"
+                width="w-full min-w-[130px] flex-1 sm:w-[130px] sm:flex-none"
+                hideLabel
               />
 
               {/* Page Size */}
@@ -331,7 +336,8 @@ export default function CouponsPage() {
                   { value: "50", label: "50" },
                 ]}
                 label="Page Size"
-                width="w-[140px]"
+                width="w-full min-w-[90px] flex-1 sm:w-[90px] sm:flex-none"
+                hideLabel
               />
 
               {/* Clear Filters Button - Only show when filters are active */}

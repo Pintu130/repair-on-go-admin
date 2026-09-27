@@ -59,6 +59,7 @@ const convertFirestoreDocToCustomer = (docData: any, docId: string): Customer =>
     id: docId || docData.id || "",
     uid: docData.uid || "",
     name: fullName,
+    role: docData.role || "",
     firstName: firstName || undefined,
     lastName: lastName || undefined,
     avatar: docData.image || docData.avatar || docData.profilePicture || undefined,

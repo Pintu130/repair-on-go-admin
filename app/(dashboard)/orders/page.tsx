@@ -177,7 +177,7 @@ export default function OrdersPage() {
       {/* Custom Filter Section */}
       <Card>
         <CardContent className="px-5">
-          <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Left Side - Search Input */}
             <SearchInput
               value={searchTerm}
@@ -186,10 +186,11 @@ export default function OrdersPage() {
                 setCurrentPage(1)
               }}
               placeholder="Search by order ID or customer..."
+              hideLabel
             />
 
             {/* Right Side - Date Range Filter, Status Filter, Category Filter, Page Size, and Clear Button */}
-            <div className="flex items-end gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-none">
               {/* Date Range Filter */}
               <DateRangeFilter
                 value={dateRange}
@@ -202,6 +203,7 @@ export default function OrdersPage() {
                   setCurrentPage(1)
                 }}
                 placeholder="Select date range"
+                className="w-full sm:w-[200px]"
               />
 
               {/* Status Filter */}
@@ -217,6 +219,8 @@ export default function OrdersPage() {
                 }))}
                 label="Status"
                 placeholder="All Status"
+                width="w-full min-w-[110px] flex-1 sm:w-[110px] sm:flex-none"
+                hideLabel
               />
 
               {/* Category Filter */}
@@ -232,6 +236,8 @@ export default function OrdersPage() {
                 }))}
                 label="Category"
                 placeholder="All Categories"
+                width="w-full min-w-[130px] flex-1 sm:w-[130px] sm:flex-none"
+                hideLabel
               />
 
               {/* Page Size */}
@@ -248,7 +254,8 @@ export default function OrdersPage() {
                   { value: "50", label: "50" },
                 ]}
                 label="Page Size"
-                width="w-[140px]"
+                width="w-full min-w-[90px] flex-1 sm:w-[90px] sm:flex-none"
+                hideLabel
               />
 
               {/* Clear Filters Button - Only show when filters are active */}

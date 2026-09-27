@@ -163,7 +163,7 @@ export default function GalleryPage() {
 
       <Card>
         <CardContent className="px-5">
-          <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <SearchInput
               value={search}
               onChange={(value) => {
@@ -171,9 +171,10 @@ export default function GalleryPage() {
                 setCurrentPage(1)
               }}
               placeholder="Search by title..."
+              hideLabel
             />
 
-            <div className="flex items-end gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-none">
               <SelectFilter
                 value={statusFilter}
                 onChange={(value) => {
@@ -187,6 +188,8 @@ export default function GalleryPage() {
                 ]}
                 label="Status"
                 placeholder="All Status"
+                width="w-full min-w-[110px] flex-1 sm:w-[110px] sm:flex-none"
+                hideLabel
               />
               <SelectFilter
                 value={pageSize.toString()}
@@ -201,7 +204,8 @@ export default function GalleryPage() {
                   { value: "50", label: "50" },
                 ]}
                 label="Page Size"
-                width="w-[140px]"
+                width="w-full min-w-[90px] flex-1 sm:w-[90px] sm:flex-none"
+                hideLabel
               />
 
               {hasActiveFilters && (

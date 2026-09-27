@@ -31,6 +31,7 @@ import {
   Package,
   FileText,
   Receipt,
+  LayoutPanelTop,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -88,16 +89,16 @@ export function Sidebar() {
     },
     { label: "Payments", href: "/payments", icon: CreditCard },
     { label: "Expenses", href: "/expenses", icon: Receipt },
+    { label: "Setting", href: "/web-settings", icon: Settings },
     {
       label: "System",
-      icon: Settings,
+      icon: LayoutPanelTop,
       children: [
         { label: "Brands", href: "/brands", icon: Package },
         { label: "Gallery", href: "/gallery", icon: ImageIcon },
         { label: "FAQ", href: "/faq", icon: HelpCircle },
         { label: "Contact", href: "/contact", icon: MessageCircle },
         { label: "SEO", href: "/seo", icon: Search },
-        { label: "Web Settings", href: "/web-settings", icon: Settings },
       ],
     },
     {

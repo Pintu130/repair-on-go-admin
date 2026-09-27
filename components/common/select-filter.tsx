@@ -15,6 +15,7 @@ interface SelectFilterProps {
   placeholder?: string
   width?: string
   className?: string
+  hideLabel?: boolean
 }
 
 export function SelectFilter({
@@ -23,14 +24,15 @@ export function SelectFilter({
   options,
   label,
   placeholder,
-  width = "w-[150px]",
+  width = "w-[130px]",
   className = "",
+  hideLabel = false,
 }: SelectFilterProps) {
   return (
     <div className={width}>
-      <label className="text-sm font-medium mb-1 block">{label}</label>
+      {!hideLabel && <label className="text-sm font-medium mb-1 block">{label}</label>}
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className={`w-full cursor-pointer ${className}`}>
+        <SelectTrigger className={`w-full cursor-pointer ${className}`} aria-label={hideLabel ? label : undefined}>
           <SelectValue placeholder={placeholder || label} />
         </SelectTrigger>
         <SelectContent>

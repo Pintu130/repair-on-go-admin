@@ -286,16 +286,17 @@ export default function ExpensesPage() {
       {/* Filter Section */}
       <Card>
         <CardContent className="px-5">
-          <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Search Input */}
             <SearchInput
               value={searchTerm}
               onChange={handleSearchChange}
               placeholder="Search expenses by title or description..."
+              hideLabel
             />
 
             {/* Right Side - Filters */}
-            <div className="flex items-end gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-none">
               <SelectFilter
                 value={paymentModeFilter}
                 onChange={handlePaymentModeFilterChange}
@@ -305,12 +306,15 @@ export default function ExpensesPage() {
                 ]}
                 label="Payment Mode"
                 placeholder="All Modes"
+                width="w-full min-w-[130px] flex-1 sm:w-[130px] sm:flex-none"
+                hideLabel
               />
 
               <DateRangeFilter
                 value={dateRange}
                 onChange={setDateRange}
                 placeholder="Filter by date"
+                className="w-full sm:w-[200px]"
               />
 
               <SelectFilter
@@ -323,7 +327,8 @@ export default function ExpensesPage() {
                   { value: "50", label: "50" },
                 ]}
                 label="Page Size"
-                width="w-[140px]"
+                width="w-full min-w-[90px] flex-1 sm:w-[90px] sm:flex-none"
+                hideLabel
               />
 
               {hasActiveFilters && (

@@ -240,12 +240,13 @@ export default function CategoryRequestsPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-end">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center">
         <SearchInput
           value={searchTerm}
           onChange={setSearchTerm}
           placeholder="Search by query, user, email, or location..."
           label="Search Requests"
+          hideLabel
         />
       </div>
 
