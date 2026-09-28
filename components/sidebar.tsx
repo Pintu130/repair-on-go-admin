@@ -18,7 +18,6 @@ import {
   HelpCircle,
   Globe,
   FolderTree,
-  Search,
   Settings,
   ChevronDown,
   ChevronRight,
@@ -32,6 +31,7 @@ import {
   FileText,
   Receipt,
   LayoutPanelTop,
+  Palette,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -52,6 +52,7 @@ export function Sidebar() {
 
   const menuItems: MenuItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Orders", href: "/orders", icon: ShoppingCart },
     {
       label: "Customer",
       icon: UserCircle2,
@@ -60,7 +61,6 @@ export function Sidebar() {
         { label: "Reviews", href: "/reviews", icon: Star },
       ],
     },
-    { label: "Orders", href: "/orders", icon: ShoppingCart },
     {
       label: "Categories",
       icon: FolderTree,
@@ -68,14 +68,6 @@ export function Sidebar() {
         { label: "Category", href: "/categories", icon: FolderTree },
         { label: "Category Requests", href: "/category-requests", icon: FileSearch },
         // { label: "Service FAQs", href: "/service-faqs", icon: HelpCircle },
-      ],
-    },
-    {
-      label: "Promotions",
-      icon: Sparkles,
-      children: [
-        { label: "Coupons", href: "/coupons", icon: Tag },
-        { label: "Announcements", href: "/announcements", icon: Megaphone },
       ],
     },
     {
@@ -87,9 +79,16 @@ export function Sidebar() {
         // { label: "Admin Users", href: "/admin-users", icon: ShieldCheck },
       ],
     },
-    { label: "Payments", href: "/payments", icon: CreditCard },
     { label: "Expenses", href: "/expenses", icon: Receipt },
-    { label: "Setting", href: "/web-settings", icon: Settings },
+    { label: "Payments", href: "/payments", icon: CreditCard },
+    {
+      label: "Promotions",
+      icon: Sparkles,
+      children: [
+        { label: "Coupons", href: "/coupons", icon: Tag },
+        { label: "Announcements", href: "/announcements", icon: Megaphone },
+      ],
+    },
     {
       label: "System",
       icon: LayoutPanelTop,
@@ -98,9 +97,9 @@ export function Sidebar() {
         { label: "Gallery", href: "/gallery", icon: ImageIcon },
         { label: "FAQ", href: "/faq", icon: HelpCircle },
         { label: "Contact", href: "/contact", icon: MessageCircle },
-        { label: "SEO", href: "/seo", icon: Search },
       ],
     },
+    { label: "Theme Colors", href: "/dashboard/theme", icon: Palette },
     {
       label: "CMS Pages",
       icon: FileText,
@@ -109,7 +108,8 @@ export function Sidebar() {
         { label: "Privacy Policy", href: "/cms-pages/privacy-policy", icon: FileText },
         { label: "Refund Policy", href: "/cms-pages/refund-policy", icon: FileText },
       ],
-    }
+    },
+    { label: "Setting", href: "/web-settings", icon: Settings },
     // {
     //   label: "Web Configurations",
     //   icon: Globe,
