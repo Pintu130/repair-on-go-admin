@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Trash2, MapPin, Search, Loader2, TrendingUp, Users, Globe, Repeat } from "lucide-react"
 import { useGetCategoryRequestsQuery, useDeleteAllCategoryRequestsMutation, type CategoryRequest } from "@/lib/store/api/categoryRequestsApi"
@@ -253,7 +253,6 @@ export default function CategoryRequestsPage() {
       {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Requests</CardTitle>
           <p className="text-sm text-muted-foreground">
             Showing {paginatedData.length} of {filtered.length} requests
           </p>

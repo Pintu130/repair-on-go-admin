@@ -1,13 +1,20 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useMemo, useState } from "react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Edit2, Trash2, Plus, Package, Loader2 } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Edit2, Trash2, Plus, Package, X } from "lucide-react"
 import { StatusBadge } from "@/components/common/status-badge"
 import { CategoryModal } from "@/components/common/category-modal"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
+import { SearchInput } from "@/components/common/search-input"
+import { SelectFilter } from "@/components/common/select-filter"
+import { Pagination } from "@/components/common/pagination"
+import { EmptyState } from "@/components/common/empty-state"
+import { CategoriesTableSkeleton } from "@/components/common/categories-table-skeleton"
 import { useGetCategoriesQuery, useCreateCategoryMutation, useUpdateCategoryMutation, useDeleteCategoryMutation, type Category } from "@/lib/store/api/categoriesApi"
 import { useToast } from "@/hooks/use-toast"
 
@@ -44,6 +51,30 @@ export default function CategoriesPage() {
   // Store base64 image data separately for API
   const [iconData, setIconData] = useState<string>("")
   const [seoImageData, setSeoImageData] = useState<string>("")
+
+  // Table-only view state
+  const [search, setSearch] = useState("")
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [viewingDesc, setViewingDesc] = useState<{ title: string; description: string } | null>(null)
+
+  const filtered = useMemo(() => {
+    const term = search.toLowerCase()
+    return categories
+      .filter((c) => (statusFilter === "all" ? true : c.status === statusFilter))
+      .filter((c) => c.name.toLowerCase().includes(term) || (c.slug || "").toLowerCase().includes(term))
+  }, [categories, statusFilter, search])
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1
+  const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  const hasActiveFilters = search !== "" || statusFilter !== "all"
+  const handleClearFilters = () => {
+    setSearch("")
+    setStatusFilter("all")
+    setCurrentPage(1)
+  }
 
   const handleAddCategory = async (sortOrder: number) => {
     if (!formData.name.trim()) {
@@ -247,42 +278,225 @@ export default function CategoriesPage() {
     }
   }
 
+  const handleOpenAdd = () => {
+    const cats = data?.categories || []
+    const maxSo = cats.length > 0 ? Math.max(...cats.map((c) => c.sortOrder ?? 0)) : 0
+    setFormData({
+      name: "",
+      description: "",
+      icon: "",
+      seoImage: "",
+      seoTitle: "",
+      seoDescription: "",
+      seoKeywords: "",
+      status: "active",
+      sortOrder: maxSo + 1,
+      referenceFront: "",
+      referenceProblem: "",
+      referenceModel: "",
+      guidelines: [],
+    })
+    setIconData("")
+    setSeoImageData("")
+    setIsAdding(true)
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-balance">Categories</h1>
-          <p className="text-muted-foreground">Manage service categories</p>
-        </div>
-        <Button
-          onClick={() => {
-            const cats = data?.categories || []
-            const maxSo =
-              cats.length > 0 ? Math.max(...cats.map((c) => c.sortOrder ?? 0)) : 0
-            setFormData({
-              name: "",
-              description: "",
-              icon: "",
-              seoImage: "",
-              seoTitle: "",
-              seoDescription: "",
-              seoKeywords: "",
-              status: "active",
-              sortOrder: maxSo + 1,
-              referenceFront: "",
-              referenceProblem: "",
-              referenceModel: "",
-              guidelines: [],
-            })
-            setIconData("")
-            setSeoImageData("")
-            setIsAdding(true)
-          }}
-          className="cursor-pointer"
-        >
-          <Plus size={16} className="mr-2" /> Add Category
-        </Button>
-      </div>
+      {isLoading ? (
+        <CategoriesTableSkeleton />
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h1 className="text-3xl font-bold text-balance">Categories</h1>
+              <p className="text-muted-foreground">Manage service categories</p>
+            </div>
+            <Button onClick={handleOpenAdd} className="shrink-0 cursor-pointer">
+              <Plus size={16} className="mr-2" /> Add Category
+            </Button>
+          </div>
+
+          <Card>
+            <CardContent className="px-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <SearchInput
+                  value={search}
+                  onChange={(value) => {
+                    setSearch(value)
+                    setCurrentPage(1)
+                  }}
+                  placeholder="Search by name or slug..."
+                  hideLabel
+                />
+
+                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-none">
+                  <SelectFilter
+                    value={statusFilter}
+                    onChange={(value) => {
+                      setStatusFilter(value as "all" | "active" | "inactive")
+                      setCurrentPage(1)
+                    }}
+                    options={[
+                      { value: "all", label: "All Status" },
+                      { value: "active", label: "Active" },
+                      { value: "inactive", label: "Inactive" },
+                    ]}
+                    label="Status"
+                    placeholder="All Status"
+                    width="w-full min-w-[110px] flex-1 sm:w-[110px] sm:flex-none"
+                    hideLabel
+                  />
+                  <SelectFilter
+                    value={pageSize.toString()}
+                    onChange={(value) => {
+                      setPageSize(Number(value))
+                      setCurrentPage(1)
+                    }}
+                    options={[
+                      { value: "5", label: "5" },
+                      { value: "10", label: "10" },
+                      { value: "20", label: "20" },
+                      { value: "50", label: "50" },
+                    ]}
+                    label="Page Size"
+                    width="w-full min-w-[90px] flex-1 sm:w-[90px] sm:flex-none"
+                    hideLabel
+                  />
+
+                  {hasActiveFilters && (
+                    <Button variant="outline" onClick={handleClearFilters} className="gap-2 cursor-pointer">
+                      <X size={16} />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-4">
+              {isError ? (
+                <div className="rounded-md border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                  Error loading categories. Please try again.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Image</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginated.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="p-0">
+                          <EmptyState
+                            icon={<Package className="size-7" />}
+                            message={
+                              categories.length === 0
+                                ? 'No categories found. Click "Add Category" to create your first category.'
+                                : "No categories match the current filters."
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginated.map((category) => (
+                        <TableRow key={category.id}>
+                          <TableCell>
+                            {category.icon ? (
+                              <div className="h-14 w-14 overflow-hidden rounded-lg border border-border bg-muted shadow-sm">
+                                <img
+                                  src={category.icon}
+                                  alt={category.name}
+                                  className="h-full w-full object-contain"
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-border bg-muted">
+                                <Package size={22} className="text-muted-foreground" />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium">{category.name}</div>
+                            {category.slug ? (
+                              <div className="text-xs text-muted-foreground">/{category.slug}</div>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            <div className="flex items-center justify-center">
+                              <StatusBadge
+                                status={category.status === "inactive" ? "inactive" : "active"}
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            <Badge variant="outline" className="text-xs font-normal">
+                              {category.sortOrder ?? "—"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setViewingDesc({ title: category.name, description: category.description })
+                              }
+                              className="h-7 shrink-0 cursor-pointer border-primary bg-transparent px-2 text-primary hover:bg-primary hover:text-primary-foreground"
+                            >
+                              Show
+                            </Button>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                className="cursor-pointer"
+                                onClick={() => handleEdit(category)}
+                                title="Edit"
+                                aria-label="Edit"
+                              >
+                                <Edit2 size={16} />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                className="cursor-pointer"
+                                onClick={() => handleDeleteClick(category.id)}
+                                title="Delete"
+                                aria-label="Delete"
+                              >
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={filtered.length}
+                onPageChange={setCurrentPage}
+              />
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <CategoryModal
         open={isAdding || !!editingId}
@@ -324,79 +538,18 @@ export default function CategoriesPage() {
         isLoading={isDeleting}
       />
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : isError ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <p className="text-destructive">Error loading categories. Please try again.</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {categories.length === 0 ? (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center text-muted-foreground">
-                  <p>No categories found. Click "Add Category" to create your first category.</p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            categories.map((category) => (
-          <Card key={category.id}>
-            <CardHeader className="relative">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Package size={32} className="text-primary shrink-0" />
-                  <div className="min-w-0 space-y-1">
-                    <CardTitle className="text-lg">{category.name}</CardTitle>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge
-                        status={category.status === "inactive" ? "inactive" : "active"}
-                      />
-                      <Badge variant="outline" className="text-xs font-normal">
-                        Order: {category.sortOrder ?? "—"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-                {(category.icon || (category as any).icon) && (
-                  <div className="absolute top-0 right-4 w-14 h-14 rounded-lg border border-border overflow-hidden bg-muted flex items-center justify-center shadow-sm">
-                    <img
-                      src={(category.icon || (category as any).icon) as string}
-                      alt={category.name}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">{category.description}</p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleEdit(category)} className="flex-1 cursor-pointer">
-                  <Edit2 size={16} className="mr-2" /> Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDeleteClick(category.id)}
-                  className="flex-1 text-destructive cursor-pointer"
-                >
-                  <Trash2 size={16} className="mr-2" /> Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-            ))
-          )}
-        </div>
-      )}
+      <Dialog open={!!viewingDesc} onOpenChange={(open) => !open && setViewingDesc(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Category Description - {viewingDesc?.title}</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+              {viewingDesc?.description}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

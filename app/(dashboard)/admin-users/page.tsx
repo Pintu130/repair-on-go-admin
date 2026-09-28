@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -160,9 +160,6 @@ export default function AdminUsersPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>All Admin Users</CardTitle>
-        </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>

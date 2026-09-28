@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Image as ImageIcon, Film, Edit2, Plus, X, Trash2 } from "lucide-react"
@@ -149,14 +149,12 @@ export default function GalleryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Gallery</h1>
-        <p className="text-muted-foreground">Images and videos to showcase on your site</p>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div />
-        <Button onClick={() => setAddOpen(true)} className="cursor-pointer">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">Gallery</h1>
+          <p className="text-muted-foreground">Images and videos to showcase on your site</p>
+        </div>
+        <Button onClick={() => setAddOpen(true)} className="shrink-0 cursor-pointer">
           <Plus size={16} className="mr-2" /> Add Media
         </Button>
       </div>
@@ -224,9 +222,6 @@ export default function GalleryPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Gallery Items</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-4">
           {isLoading ? (
             <GalleryTableSkeleton />
