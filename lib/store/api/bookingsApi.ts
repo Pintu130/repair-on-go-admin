@@ -123,6 +123,9 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
   
   // Get category name
   const category = docData.categoryName || "Unknown"
+
+  // Get category id (used for category wise filtering / analytics)
+  const categoryId = (docData.categoryId ?? "").toString().trim()
   
   // Get amount
   const amount = docData.amount || 0
@@ -210,6 +213,7 @@ const convertFirestoreDocToOrder = (docData: any, docId: string): Order => {
     paymentStatus: paymentStatus,
     paymentMethod: paymentMethod,
     category: category,
+    categoryId: categoryId || undefined,
     amount: amount,
     status: status,
     date: date,

@@ -1,48 +1,66 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 
 interface StatCardProps {
-  title: string
-  value: string | number
-  subtitle?: string
-  /** Extra classes for subtitle text (e.g. color) */
-  subtitleClassName?: string
-  icon?: ReactNode
-  /** When set, the whole card becomes a link to this route */
+  label: string
+  value: ReactNode
+  sub?: ReactNode
+  icon: ReactNode
+  /** Icon container ke colours, e.g. "bg-emerald-50 text-emerald-600" */
+  iconClass: string
+  loading?: boolean
+  /** Set karo to poora card link ban jata hai */
   href?: string
 }
 
-export function StatCard({ title, value, subtitle, subtitleClassName, icon, href }: StatCardProps) {
-  const content = (
+export function StatCard({
+  label,
+  value,
+  sub,
+  icon,
+  iconClass,
+  loading = false,
+  href,
+}: StatCardProps) {
+  const card = (
     <Card
-      className={
-        href
-          ? "h-full cursor-pointer transition-colors hover:border-primary/50 hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          : "h-full"
-      }
+      className={cn(
+        "gap-0 p-4",
+        href && "transition-colors hover:border-primary/40 hover:bg-muted/30"
+      )}
     >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {icon}
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {subtitle && (
-          <p className={subtitleClassName ?? "text-xs text-muted-foreground"}>{subtitle}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="truncate text-[13px] font-medium text-muted-foreground">{label}</p>
+        <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", iconClass)}>
+          {icon}
+        </div>
+      </div>
+
+      <div className="mt-2">
+        {loading ? (
+          <Skeleton className="h-7 w-20 bg-muted" />
+        ) : (
+          <div className="truncate text-xl font-bold tabular-nums">{value}</div>
         )}
-      </CardContent>
+        {sub ? <p className="mt-1 truncate text-xs text-muted-foreground">{sub}</p> : null}
+      </div>
     </Card>
   )
 
   if (href) {
     return (
-      <Link href={href} className="rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
-        {content}
+      <Link
+        href={href}
+        className="block cursor-pointer rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        {card}
       </Link>
     )
   }
 
-  return content
+  return card
 }

@@ -9,6 +9,8 @@ export interface Order {
   paymentStatus: "pending" | "paid" | "cash"
   paymentMethod: "UPI" | "Cash" | "Card"
   category: string
+  /** Firestore doc ke category ka id (categories collection). Filtering ke liye. */
+  categoryId?: string
   amount: number
   status: "booked"| "confirmed" | "picked" | "serviceCenter" | "repair" | "outForDelivery" | "delivered" | "cancelled"
   date: string
