@@ -1,30 +1,126 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read/write expenses
-    match /expenses/{expenseId} {
-      allow read, write: if request.auth != null;
-    }
     
-    // Allow authenticated users to read/write reviews
+    function isAdmin() {
+      return request.auth != null && 
+             request.auth.uid == "ouiwWDvcXBM9aDyjCaSnCLRFKai2";
+    }
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    match /customers/{userId} {
+      allow read, list: if isLoggedIn();
+      allow create: if true;
+      allow update: if (isLoggedIn() && resource.data.uid == request.auth.uid) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow read, list: if isAdmin() || 
+                        (isLoggedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if isLoggedIn();
+      allow update, delete: if isAdmin() || 
+                            (isLoggedIn() && resource.data.customerId == request.auth.uid);
+    }
+
     match /reviews/{reviewId} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow create: if isLoggedIn();
+      allow update, delete: if isAdmin() || 
+                            (isLoggedIn() && resource.data.customerId == request.auth.uid);
     }
-    
-    // Allow authenticated users to read/write service FAQs
-    match /serviceFaqs/{serviceFaqId} {
-      allow read, write: if request.auth != null;
+
+    match /reviewEligibility/{docId} {
+      allow read, list: if isAdmin() || 
+                        (isLoggedIn() && resource.data.customerId == request.auth.uid);
+      allow write: if isAdmin();
     }
-    
-    // Allow authenticated users to read/write categories
-    match /categories/{categoryId} {
-      allow read, write: if request.auth != null;
+
+    match /brands/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
-    
-    // Allow authenticated users to read/write all other collections
+
+    match /categories/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /categoriesSearch/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /offers/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /cmsPages/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /faq/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gallery/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /websettings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /coupons/{docId} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+    }
+
+    match /contacts/{docId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    match /employees/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /expenses/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /categoryRequests/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Service FAQs
+    match /serviceFaqs/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Serial Numbers (admin panel only — customer app never reads these)
+    match /serialNumbers/{serialId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /serialBatches/{batchId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /serialCounters/{year} {
+      allow read, write: if isAdmin();
+    }
+
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
-

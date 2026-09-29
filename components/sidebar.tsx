@@ -32,6 +32,7 @@ import {
   Receipt,
   LayoutPanelTop,
   Palette,
+  Barcode,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -53,6 +54,7 @@ export function Sidebar() {
   const menuItems: MenuItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Orders", href: "/orders", icon: ShoppingCart },
+    { label: "Serial Numbers", href: "/serial-numbers", icon: Barcode },
     {
       label: "Customer",
       icon: UserCircle2,

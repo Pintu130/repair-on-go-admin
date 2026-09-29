@@ -15,6 +15,7 @@ import { brandsApi } from "./api/brandsApi"
 import { cmsApi } from "./api/cmsApi"
 import { expensesApi } from "./api/expensesApi"
 import { serviceFaqsApi } from "./api/serviceFaqsApi"
+import { serialNumbersApi } from "./api/serialNumbersApi"
 
 export const store = configureStore({
   reducer: {
@@ -34,9 +35,10 @@ export const store = configureStore({
     [cmsApi.reducerPath]: cmsApi.reducer,
     [expensesApi.reducerPath]: expensesApi.reducer,
     [serviceFaqsApi.reducerPath]: serviceFaqsApi.reducer,
+    [serialNumbersApi.reducerPath]: serialNumbersApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(authApi.middleware, customersApi.middleware, couponsApi.middleware, faqsApi.middleware, contactsApi.middleware, categoriesApi.middleware, reviewsApi.middleware, bookingsApi.middleware, categoryRequestsApi.middleware, webSettingsApi.middleware, galleryApi.middleware, employeesApi.middleware, brandsApi.middleware, cmsApi.middleware, expensesApi.middleware, serviceFaqsApi.middleware),
+    getDefaultMiddleware().concat(authApi.middleware, customersApi.middleware, couponsApi.middleware, faqsApi.middleware, contactsApi.middleware, categoriesApi.middleware, reviewsApi.middleware, bookingsApi.middleware, categoryRequestsApi.middleware, webSettingsApi.middleware, galleryApi.middleware, employeesApi.middleware, brandsApi.middleware, cmsApi.middleware, expensesApi.middleware, serviceFaqsApi.middleware, serialNumbersApi.middleware),
 })
 
 export type RootState = ReturnType<typeof store.getState>
