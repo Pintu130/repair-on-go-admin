@@ -38,7 +38,7 @@ import {
   formatSerialStatus,
   type SerialStatus,
 } from "@/data/serial-numbers"
-import { buildSerialStickerPdf, downloadBlob } from "@/lib/utils/serial-qr"
+import { buildSerialStickerPdf, downloadBlob } from "@/lib/utils/serial-sticker"
 import { useFirebaseAuthReady } from "@/lib/utils/firebase-auth"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -234,7 +234,7 @@ export default function SerialNumbersPage() {
             <div>
               <h1 className="text-3xl font-bold text-balance">Serial Numbers</h1>
               <p className="text-muted-foreground">
-                Generate unique device serials and print QR sticker sheets
+                Generate unique device serials and print barcode sticker sheets
               </p>
             </div>
             <Button onClick={() => setIsGenerateOpen(true)} className="shrink-0 cursor-pointer">
