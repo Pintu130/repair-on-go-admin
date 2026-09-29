@@ -21,8 +21,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { endOfDay, startOfDay } from "date-fns"
 import { SearchInput } from "@/components/common/search-input"
 import { SelectFilter } from "@/components/common/select-filter"
+import { DateRangeFilter } from "@/components/common/date-range-filter"
 import { Pagination } from "@/components/common/pagination"
 import { EmptyState } from "@/components/common/empty-state"
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
@@ -80,6 +82,7 @@ export default function SerialNumbersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<SerialStatus | "all">("all")
   const [batchFilter, setBatchFilter] = useState(BATCH_FILTER_ALL)
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date } | undefined>(undefined)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 
@@ -111,7 +114,18 @@ export default function SerialNumbersPage() {
   const [generateSerials, { isLoading: isGenerating }] = useGenerateSerialsMutation()
   const [voidSerial, { isLoading: isVoiding }] = useVoidSerialMutation()
 
-  const serials = useMemo(() => data?.serials ?? [], [data])
+  const serials = useMemo(() => {
+    const list = data?.serials ?? []
+    if (!dateRange?.from) return list
+    const from = startOfDay(new Date(dateRange.from))
+    const to = endOfDay(dateRange.to ?? dateRange.from)
+    return list.filter((serial) => {
+      if (!serial.createdAt) return false
+      const created = new Date(serial.createdAt)
+      if (Number.isNaN(created.getTime())) return false
+      return created >= from && created <= to
+    })
+  }, [data, dateRange])
   const batches = useMemo(() => data?.batches ?? [], [data])
   const year = data?.year ?? new Date().getFullYear()
   const nextSequence = data?.nextSequence ?? 0
@@ -119,12 +133,17 @@ export default function SerialNumbersPage() {
   const totalPages = Math.ceil(serials.length / pageSize) || 1
   const paginated = serials.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
-  const hasActiveFilters = search !== "" || statusFilter !== "all" || batchFilter !== BATCH_FILTER_ALL
+  const hasActiveFilters =
+    search !== "" ||
+    statusFilter !== "all" ||
+    batchFilter !== BATCH_FILTER_ALL ||
+    dateRange?.from !== undefined
   const handleClearFilters = () => {
     setSearch("")
     setDebouncedSearch("")
     setStatusFilter("all")
     setBatchFilter(BATCH_FILTER_ALL)
+    setDateRange(undefined)
     setCurrentPage(1)
   }
 
@@ -292,6 +311,19 @@ export default function SerialNumbersPage() {
                     placeholder="All Batches"
                     width="w-full min-w-[180px] flex-1 sm:w-[220px] sm:flex-none"
                     hideLabel
+                  />
+                  <DateRangeFilter
+                    value={dateRange}
+                    onChange={(range) => {
+                      setDateRange(range)
+                      setCurrentPage(1)
+                    }}
+                    onClear={() => {
+                      setDateRange(undefined)
+                      setCurrentPage(1)
+                    }}
+                    placeholder="Filter by date"
+                    className="w-full sm:w-[200px]"
                   />
                   <SelectFilter
                     value={pageSize.toString()}

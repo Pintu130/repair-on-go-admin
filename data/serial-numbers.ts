@@ -86,15 +86,16 @@ export function normalizeSerialInput(input: string): string | null {
 }
 
 /**
- * Compact form encoded into the sticker barcode, e.g. "ROG-2026-000123"
- * becomes "2026000123".
+ * Short form printed under the sticker barcode, e.g. "ROG-2026-000123" becomes
+ * "2026000123".
  *
- * CODE128 spends 11 modules on every character, so the prefix and the two
- * separators account for a third of the symbol. Dropping them takes a serial
- * from 178 modules to 90, which is the difference between a 42mm sticker that
- * will not fit on a watch and a 22mm one that does. `toSerialIdPrefixes`
- * already resolves this form back to the full serial when it is typed into
- * search, so a scan needs no special handling.
+ * The barcode itself encodes the full serial, so a scanner hands back something
+ * self-describing. The printed line is the short one because a 15-character
+ * string crowds a 42mm sticker, and an admin reading a sticker by hand has fewer
+ * digits to key into the search box.
+ *
+ * `toSerialIdPrefixes` already resolves this form back to the full serial when it
+ * is typed into search, so either representation finds the same record.
  */
 export function toCompactSerialPayload(serial: string): string | null {
   const canonical = normalizeSerialInput(serial)
