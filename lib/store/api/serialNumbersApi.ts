@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 import {
   collection,
+  deleteField,
   doc,
   documentId,
   endAt,
@@ -26,6 +27,7 @@ import {
   SERIAL_SEQUENCE_LENGTH,
   formatSerial,
   getCurrentSerialYear,
+  normalizeSerialInput,
   type SerialBatch,
   type SerialListResponse,
   type SerialNumber,
@@ -172,7 +174,7 @@ function toSerialIdPrefixes(input: string): string[] {
 export const serialNumbersApi = createApi({
   reducerPath: "serialNumbersApi",
   baseQuery: fetchBaseQuery({ baseUrl: "/api" }),
-  tagTypes: ["SerialNumbers", "SerialBatches"],
+  tagTypes: ["SerialNumbers", "SerialBatches", "Bookings"],
   endpoints: (builder) => ({
     getSerials: builder.query<
       SerialListResponse,
@@ -372,6 +374,157 @@ export const serialNumbersApi = createApi({
     }),
 
     /**
+     * Links a serial to an order, in one transaction across both documents.
+     *
+     * The serial document is the authority on whether a number is still usable,
+     * so it is re-read inside the transaction rather than trusted from the UI.
+     * That read is also what makes this safe against the employee app, which
+     * links serials through its own Admin SDK route: two concurrent links both
+     * read "available", only one commits, and the loser's write is rejected by
+     * Firestore's optimistic concurrency check.
+     *
+     * The booking is written in the same transaction so an order can never show
+     * a serial that the serial collection does not agree with.
+     *
+     * `replaceExisting` is the recovery path for a mis-scanned sticker. The old
+     * serial cannot simply be voided first, because a linked serial is refused
+     * by voidSerial — that refusal is what stops a serial being pulled off an
+     * order that still has it. So the swap releases the old number back to
+     * "available" in this same transaction instead, and that number becomes
+     * linkable again.
+     */
+    linkSerialToOrder: builder.mutation<
+      { success: boolean; serial: string; orderId: string; replacedSerial?: string | null },
+      { serial: string; orderId: string; linkedByName?: string; replaceExisting?: boolean }
+    >({
+      queryFn: async ({ serial, orderId, linkedByName, replaceExisting }) => {
+        try {
+          const user = await ensureFirebaseAuth()
+          const canonical = normalizeSerialInput(serial)
+          if (!canonical) {
+            return {
+              error: toCustomError(
+                "That is not a valid serial number. Use the full form, e.g. ROG-2026-000123."
+              ),
+            }
+          }
+          if (!orderId) {
+            return { error: toCustomError("Order is required.") }
+          }
+
+          const serialRef = doc(db, SERIALS_COLLECTION, canonical)
+          const bookingRef = doc(db, "bookings", orderId)
+          const linkedBy = user.uid
+
+          const outcome = await runTransaction(db, async (tx) => {
+            const [serialSnap, bookingSnap] = await Promise.all([
+              tx.get(serialRef),
+              tx.get(bookingRef),
+            ])
+
+            if (!serialSnap.exists()) {
+              return { error: "Serial not found in the database." }
+            }
+            if (!bookingSnap.exists()) {
+              return { error: "Order not found." }
+            }
+
+            const serialData = serialSnap.data() as Record<string, any>
+            const bookingData = bookingSnap.data() as Record<string, any>
+
+            if (serialData.status === "void") {
+              return { error: "This serial has been voided and can never be used." }
+            }
+            if (serialData.status === "linked") {
+              return { error: "This serial is already linked to another order." }
+            }
+
+            const currentSerial =
+              typeof bookingData.serialNumber === "string" ? bookingData.serialNumber.trim() : ""
+            const isReplacing = !!currentSerial && currentSerial !== canonical
+
+            if (isReplacing && !replaceExisting) {
+              return {
+                error: `This order already has serial ${currentSerial} linked.`,
+              }
+            }
+
+            // Firestore requires every read to precede every write, so the serial
+            // being released is read before anything is written.
+            const previousRef = isReplacing ? doc(db, SERIALS_COLLECTION, currentSerial) : null
+            const previousSnap = previousRef ? await tx.get(previousRef) : null
+
+            const now = serverTimestamp()
+            const orderLabel = String(bookingData.bookingId || orderId)
+
+            // A serial can only be released if it is still linked to this order.
+            // If it moved on in the meantime the swap is refused rather than
+            // handing a live number back to the pool.
+            if (isReplacing && previousSnap?.exists()) {
+              const previousData = previousSnap.data() as Record<string, any>
+              if (previousData.status !== "linked" || previousData.linkedOrderId !== orderId) {
+                return {
+                  error: `Serial ${currentSerial} is no longer linked to this order, so it cannot be replaced automatically. Reload the order and try again.`,
+                }
+              }
+              tx.update(previousRef!, {
+                status: "available",
+                linkedAt: deleteField(),
+                linkedOrderId: deleteField(),
+                linkedOrderLabel: deleteField(),
+                linkedByEmployeeId: deleteField(),
+                linkedByEmployeeName: deleteField(),
+                linkedByAdmin: deleteField(),
+                unlinkedAt: now,
+                unlinkedFromOrderId: orderId,
+                unlinkedBy: linkedBy,
+                updatedAt: now,
+              })
+            }
+
+            tx.update(serialRef, {
+              status: "linked",
+              linkedAt: now,
+              linkedOrderId: orderId,
+              linkedOrderLabel: orderLabel,
+              linkedByEmployeeId: linkedBy,
+              linkedByEmployeeName: linkedByName || linkedBy,
+              linkedByAdmin: true,
+            })
+            tx.update(bookingRef, {
+              serialNumber: canonical,
+              serialLinkedAt: now,
+              serialLinkedBy: linkedBy,
+              serialLinkedByName: linkedByName || linkedBy,
+              updatedAt: now,
+            })
+
+            return { error: null as string | null, replacedSerial: isReplacing ? currentSerial : null }
+          })
+
+          if (outcome.error) return { error: toCustomError(outcome.error) }
+
+          return {
+            data: {
+              success: true,
+              serial: canonical,
+              orderId,
+              replacedSerial: outcome.replacedSerial,
+            },
+          }
+        } catch (error: any) {
+          console.error("Error linking serial to order:", error)
+          return {
+            error: toCustomError(
+              describeFirestoreError(error, "Failed to link serial to order")
+            ),
+          }
+        }
+      },
+      invalidatesTags: ["SerialNumbers", "SerialBatches", "Bookings"],
+    }),
+
+    /**
      * Voiding re-reads the serial inside a transaction so a serial cannot be voided
      * at the same moment an employee is linking it to an order.
      * Voided numbers are never returned to the available pool.
@@ -413,4 +566,9 @@ export const serialNumbersApi = createApi({
   }),
 })
 
-export const { useGetSerialsQuery, useGenerateSerialsMutation, useVoidSerialMutation } = serialNumbersApi
+export const {
+  useGetSerialsQuery,
+  useGenerateSerialsMutation,
+  useLinkSerialToOrderMutation,
+  useVoidSerialMutation,
+} = serialNumbersApi

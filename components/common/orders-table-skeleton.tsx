@@ -50,7 +50,7 @@ export function OrdersTableSkeleton() {
             <table className="w-full text-sm">
               <thead className="border-b border-border">
                 <tr>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
                     <th key={i} className="text-left py-3 px-4">
                       <Skeleton className="h-4 w-20 bg-gray-200" />
                     </th>
@@ -60,7 +60,7 @@ export function OrdersTableSkeleton() {
               <tbody>
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((row) => (
                   <tr key={row} className="border-b border-border">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((cell) => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((cell) => (
                       <td key={cell} className="py-3 px-4">
                         <Skeleton className="h-4 w-full bg-gray-200" />
                       </td>

@@ -1,14 +1,18 @@
 "use client"
 
+import { useState } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Loader } from "@/components/ui/loader"
-import { ArrowLeft, User, Folder, IndianRupee, Calendar, ExternalLink } from "lucide-react"
+import { ArrowLeft, User, Folder, IndianRupee, Calendar, ExternalLink, ScanBarcode } from "lucide-react"
 import { useGetBookingByIdQuery } from "@/lib/store/api/bookingsApi"
 import { useGetEmployeeByUidQuery } from "@/lib/store/api/employeesApi"
+import { useLinkSerialToOrderMutation } from "@/lib/store/api/serialNumbersApi"
+import { LinkSerialModal } from "@/components/common/link-serial-modal"
+import { useToast } from "@/hooks/use-toast"
 
 const statusLabels: Record<string, string> = {
   booked: "Order Booked",
@@ -59,12 +63,47 @@ export default function OrderDetailsPage() {
   const params = useParams()
   const bookingId = params.id as string
 
-  const { data: bookingData, isLoading: orderLoading, error: orderError } = useGetBookingByIdQuery(bookingId)
+  const { data: bookingData, isLoading: orderLoading, error: orderError, refetch } = useGetBookingByIdQuery(bookingId)
   const order = bookingData?.booking
 
   const pickupEmployeeUid = order?.pickupEmployeeId || order?.assignedEmployeeId
   const { data: employeeData } = useGetEmployeeByUidQuery(pickupEmployeeUid || "", { skip: !pickupEmployeeUid })
   const pickupEmployee = employeeData?.employee
+
+  const [isLinkOpen, setIsLinkOpen] = useState(false)
+  const [linkSerial, { isLoading: isLinking }] = useLinkSerialToOrderMutation()
+  const { toast } = useToast()
+
+  const handleLinkSerial = async (serial: string) => {
+    if (!order) return
+    const previous = order.serialNumber
+    try {
+      await linkSerial({
+        serial,
+        orderId: order.id,
+        linkedByName: "Admin",
+        // The modal is the same for both directions, so a swap has to be
+        // opted into explicitly here rather than guessed by the mutation.
+        replaceExisting: !!previous && previous !== serial,
+      }).unwrap()
+      setIsLinkOpen(false)
+      refetch()
+      toast({
+        title: previous && previous !== serial ? "Serial replaced" : "Serial linked",
+        description:
+          previous && previous !== serial
+            ? `${serial} now linked to ${order.bookingId || order.id}. ${previous} was released back to available.`
+            : `${serial} is now linked to ${order.bookingId || order.id}.`,
+      })
+    } catch (error: any) {
+      console.error("Error linking serial:", error)
+      toast({
+        title: "Could not link serial",
+        description: error?.data?.error || error?.message || "Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
 
   if (orderLoading) {
     return (
@@ -236,6 +275,43 @@ export default function OrderDetailsPage() {
         </div>
       )}
 
+      {/* Device Serial Number */}
+      <div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Device Serial Number</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsLinkOpen(true)}
+            disabled={isLinking}
+            className="cursor-pointer gap-1.5"
+          >
+            <ScanBarcode size={14} />
+            {order.serialNumber ? "Replace serial" : "Link serial"}
+          </Button>
+        </div>
+        {order.serialNumber ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <DetailRow label="Serial Number" value={order.serialNumber} />
+            <DetailRow
+              label="Linked By"
+              value={order.serialLinkedByName || order.serialLinkedBy}
+            />
+            <DetailRow
+              label="Linked At"
+              value={
+                order.serialLinkedAt ? formatDateTime(order.serialLinkedAt) : undefined
+              }
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No serial linked to this order yet. It is normally linked by the employee during pickup,
+            before OTP verification.
+          </p>
+        )}
+      </div>
+
       {/* Pickup Details */}
       {(order.pickupEmployeeName || order.pickupOtp || order.otp?.pickup) && (
         <div>
@@ -290,6 +366,15 @@ export default function OrderDetailsPage() {
           </CardContent>
         </Card>
       )}
+
+      <LinkSerialModal
+        open={isLinkOpen}
+        onOpenChange={setIsLinkOpen}
+        orderLabel={order.bookingId || order.id}
+        currentSerial={order.serialNumber}
+        isLoading={isLinking}
+        onLink={handleLinkSerial}
+      />
     </div>
   )
 }

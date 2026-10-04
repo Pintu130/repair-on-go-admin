@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Trash2, X, Eye, CheckCircle, Package, Wrench, Truck, Smartphone, Banknote, CreditCard, Loader2 } from "lucide-react"
+import { Trash2, X, Eye, CheckCircle, Package, Wrench, Truck, Smartphone, Banknote, CreditCard, Loader2, ScanBarcode } from "lucide-react"
 import { type Order } from "@/data/orders"
 import { SearchInput } from "@/components/common/search-input"
 import { SelectFilter } from "@/components/common/select-filter"
@@ -14,9 +14,12 @@ import { OrderStatusBadge, statusLabels } from "@/components/common/order-status
 import { ConfirmationModal } from "@/components/common/confirmation-modal"
 import { InfoCard } from "@/components/common/info-card"
 import { DateRangeFilter } from "@/components/common/date-range-filter"
+import { LinkSerialModal } from "@/components/common/link-serial-modal"
 import { useGetBookingsQuery, useDeleteBookingMutation } from "@/lib/store/api/bookingsApi"
+import { useLinkSerialToOrderMutation } from "@/lib/store/api/serialNumbersApi"
 import { OrdersTableSkeleton } from "@/components/common/orders-table-skeleton"
 import { PhoneActions } from "@/components/common/phone-actions"
+import { useToast } from "@/hooks/use-toast"
 
 interface OrderItem extends Order {}
 
@@ -26,15 +29,21 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<"all" | Order["status"]>("all")
   const [categoryFilter, setCategoryFilter] = useState<"all" | string>("all")
+  const [serialFilter, setSerialFilter] = useState<"all" | "linked" | "missing">("all")
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date } | undefined>(undefined)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [linkingSerial, setLinkingSerial] = useState<OrderItem | null>(null)
 
   // Fetch bookings from Firebase
   const { data: bookingsData, isLoading, error, refetch } = useGetBookingsQuery()
   
   // Delete booking mutation
   const [deleteBooking, { isLoading: isDeleting }] = useDeleteBookingMutation()
+
+  // Manual serial linking, for when pickup could not link it
+  const [linkSerial, { isLoading: isLinking }] = useLinkSerialToOrderMutation()
+  const { toast } = useToast()
   
   const orders: OrderItem[] = bookingsData?.bookings || []
   console.log("🚀 ~ OrdersPage ~ orders:111", orders)
@@ -47,6 +56,7 @@ export default function OrdersPage() {
     searchTerm !== "" ||
     statusFilter !== "all" ||
     categoryFilter !== "all" ||
+    serialFilter !== "all" ||
     dateRange?.from !== undefined
 
   // Clear all filters
@@ -54,18 +64,32 @@ export default function OrdersPage() {
     setSearchTerm("")
     setStatusFilter("all")
     setCategoryFilter("all")
+    setSerialFilter("all")
     setDateRange(undefined)
     setCurrentPage(1)
   }
 
   const filtered = useMemo(() => {
+    const needle = searchTerm.trim().toLowerCase()
+    // Admins read serials off a sticker, which is the short form, so the
+    // digits of a linked serial are searchable even when the ROG prefix is absent.
+    const serialNeedle = needle.replace(/^rog-?/, "")
+
     return orders.filter((order) => {
       const matchesSearch =
-        order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customer.toLowerCase().includes(searchTerm.toLowerCase())
+        (needle !== "" &&
+          (order.id.toLowerCase().includes(needle) ||
+            order.bookingId.toLowerCase().includes(needle) ||
+            order.customer.toLowerCase().includes(needle) ||
+            (order.serialNumber ?? "").toLowerCase().includes(needle) ||
+            (serialNeedle !== "" && order.serialNumber?.replace(/^ROG-/, "").toLowerCase() === serialNeedle))) ||
+        needle === ""
       const matchesStatus = statusFilter === "all" || order.status === statusFilter
       const matchesCategory = categoryFilter === "all" || order.category === categoryFilter
-      
+      const matchesSerial =
+        serialFilter === "all" ||
+        (serialFilter === "linked" ? !!order.serialNumber : !order.serialNumber)
+
       // Date range filter
       let matchesDateRange = true
       if (dateRange?.from) {
@@ -81,9 +105,9 @@ export default function OrdersPage() {
         matchesDateRange = orderDate >= fromDate && orderDate <= toDate
       }
       
-      return matchesSearch && matchesStatus && matchesCategory && matchesDateRange
+      return matchesSearch && matchesStatus && matchesCategory && matchesSerial && matchesDateRange
     })
-  }, [searchTerm, statusFilter, categoryFilter, dateRange, orders])
+  }, [searchTerm, statusFilter, categoryFilter, serialFilter, dateRange, orders])
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
@@ -97,6 +121,31 @@ export default function OrdersPage() {
   const handleDeleteClick = (id: string) => {
     setDeleteId(id)
     setIsDeleteOpen(true)
+  }
+
+  const handleLinkSerial = async (serial: string) => {
+    if (!linkingSerial) return
+    const target = linkingSerial
+    try {
+      await linkSerial({
+        serial,
+        orderId: target.id,
+        linkedByName: "Admin",
+      }).unwrap()
+      setLinkingSerial(null)
+      refetch()
+      toast({
+        title: "Serial linked",
+        description: `${serial} is now linked to ${target.bookingId || target.id}.`,
+      })
+    } catch (error: any) {
+      console.error("Error linking serial:", error)
+      toast({
+        title: "Could not link serial",
+        description: error?.data?.error || error?.message || "Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDeleteConfirm = async () => {
@@ -240,6 +289,24 @@ export default function OrdersPage() {
                 hideLabel
               />
 
+              {/* Serial Number Filter */}
+              <SelectFilter
+                value={serialFilter}
+                onChange={(value) => {
+                  setSerialFilter(value as "all" | "linked" | "missing")
+                  setCurrentPage(1)
+                }}
+                options={[
+                  { value: "all", label: "All Serials" },
+                  { value: "linked", label: "Serial Linked" },
+                  { value: "missing", label: "Serial Missing" },
+                ]}
+                label="Serial"
+                placeholder="All Serials"
+                width="w-full min-w-[130px] flex-1 sm:w-[130px] sm:flex-none"
+                hideLabel
+              />
+
               {/* Page Size */}
               <SelectFilter
                 value={pageSize.toString()}
@@ -288,6 +355,7 @@ export default function OrdersPage() {
                   <th className="text-left py-3 px-4 font-semibold">Payment Method</th>
                   <th className="text-left py-3 px-4 font-semibold">Order Date</th>
                   <th className="text-left py-3 px-4 font-semibold">Order Status</th>
+                  <th className="text-left py-3 px-4 font-semibold">Serial Number</th>
                   <th className="text-left py-3 px-4 font-semibold">Action</th>
                 </tr>
               </thead>
@@ -347,6 +415,21 @@ export default function OrdersPage() {
                     <td className="py-3 px-4">
                       <OrderStatusBadge status={order.status} />
                     </td>
+                    <td className="py-3 px-4">
+                      {order.serialNumber ? (
+                        <span className="font-mono text-xs font-semibold">{order.serialNumber}</span>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLinkingSerial(order)}
+                          disabled={isLinking}
+                          className="h-7 cursor-pointer gap-1.5 text-xs"
+                        >
+                          <ScanBarcode size={13} /> Link
+                        </Button>
+                      )}
+                    </td>
                     <td className="py-3 px-4 flex gap-2">
                       <Button
                         variant="outline"
@@ -395,6 +478,17 @@ export default function OrdersPage() {
         cancelText="Cancel"
         variant="destructive"
         isLoading={isDeleting}
+      />
+
+      <LinkSerialModal
+        open={!!linkingSerial}
+        onOpenChange={(open) => {
+          if (!open) setLinkingSerial(null)
+        }}
+        orderLabel={linkingSerial?.bookingId || linkingSerial?.id || ""}
+        currentSerial={linkingSerial?.serialNumber}
+        isLoading={isLinking}
+        onLink={handleLinkSerial}
       />
     </div>
   )

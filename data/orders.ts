@@ -14,6 +14,18 @@ export interface Order {
   amount: number
   status: "booked"| "confirmed" | "picked" | "serviceCenter" | "repair" | "outForDelivery" | "delivered" | "cancelled"
   date: string
+  /**
+   * Device serial linked to this order, in canonical form e.g. "ROG-2026-000123".
+   * Mirrored onto the serial document so both sides of the link are readable in
+   * one query, and written in the same transaction that flips the serial to
+   * "linked" so the two can never disagree.
+   */
+  serialNumber?: string
+  /** ISO string of when the serial was linked. */
+  serialLinkedAt?: string
+  /** Employee id or admin uid that linked the serial. */
+  serialLinkedBy?: string
+  serialLinkedByName?: string
   /** When each status was set (ISO string per status key). Used for timeline. */
   statusTimestamps?: Record<string, string>
   /** Last updated at (ISO string). */
